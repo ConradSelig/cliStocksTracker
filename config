@@ -1,0 +1,5 @@
+frame:
+    width: 120
+    height: 20
+kwargs:
+    independent_graphs: False

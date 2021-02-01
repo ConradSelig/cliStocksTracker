@@ -1,0 +1,3 @@
+plotille
+numpy
+yfinance
