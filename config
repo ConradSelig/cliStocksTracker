@@ -1,5 +1,6 @@
 frame:
-    width: 120
-    height: 20
+    width: 130
+    height: 7
 kwargs:
-    independent_graphs: False
+    independent_graphs: True
+    timezone: America/Denver

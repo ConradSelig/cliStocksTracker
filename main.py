@@ -1,4 +1,5 @@
 import io
+import pytz
 import plotille
 import contextlib
 
@@ -45,13 +46,13 @@ def main():
     # are the graphs being put together, or separate? Then plot
     if "independent_graphs" in config["kwargs"].keys():
         if config["kwargs"]["independent_graphs"] == "False":
-            plot(stock_data, config["frame"])
+            plot(stock_data, config)
         else:
             for stock in stock_data:
-                plot({stock: stock_data[stock]}, config["frame"])
+                plot({stock: stock_data[stock]}, config)
                 print()
     else:
-        plot(stock_data, config["frame"])
+        plot(stock_data, config)
 
     # graphing is done, time for the portfolio summary
 
@@ -126,9 +127,10 @@ def plot(stocks, config):
     plot = plotille.Figure()
     
     # set some standard plot settings
-    plot.width = int(config["width"])
-    plot.height = int(config["height"])
-    plot.set_x_limits(min_=datetime.now().replace(hour=7, minute=30, second=0), max_=datetime.now().replace(hour=16, minute=0, second=0))
+    plot.width = int(config["frame"]["width"])
+    plot.height = int(config["frame"]["height"])
+    plot.set_x_limits(min_=datetime.now().replace(hour=14, minute=30, second=0).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["kwargs"]["timezone"])), 
+                      max_=datetime.now().replace(hour=21, minute=0, second=0).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["kwargs"]["timezone"])))
     plot.set_y_limits(min_=y_min, max_=y_max)
     plot.color_mode = 'byte'
     plot.X_label="Time"
