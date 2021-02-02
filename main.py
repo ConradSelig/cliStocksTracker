@@ -109,7 +109,7 @@ def parse_config(config_filename):
 
     for line in filedata:
         # if the line is not indented
-        if line[0] != " ":
+        if line[0] != " " and line[0] != "\t":
             config[line.replace(":", "")] = {}
             last_key = line.replace(":", "")
         # otherwise, it's a subkey
