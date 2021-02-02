@@ -1,6 +1,0 @@
-frame:
-    width: 130
-    height: 7
-kwargs:
-    independent_graphs: True
-    timezone: America/Denver
