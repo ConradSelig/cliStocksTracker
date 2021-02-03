@@ -1,3 +1,5 @@
 plotille
 numpy
 yfinance
+pytz
+colorama

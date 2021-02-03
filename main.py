@@ -1,14 +1,15 @@
 import io
 import pytz
 import plotille
+import webcolors
 import contextlib
 
 import numpy as np
 import yfinance as market
 
+from matplotlib import colors
 from colorama import Fore, Style
 from datetime import datetime, timedelta
-
 
 def main():
 
@@ -41,7 +42,10 @@ def main():
             if stocks_config[stock]["graph"] == "False":
                 continue
         # add the data to known data
-        stock_data[stock] = data
+        if "color" in stocks_config[stock].keys():
+            stock_data[stock] = [stocks_config[stock]["color"], data]
+        else:
+            stock_data[stock] = [None, data]
 
     # are the graphs being put together, or separate? Then plot
     if "independent_graphs" in config["kwargs"].keys():
@@ -124,6 +128,15 @@ def plot(stocks, config):
 
     y_min, y_max = find_y_range(stocks)
 
+    auto_colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#000000", 
+        "#800000", "#008000", "#000080", "#808000", "#800080", "#008080", "#808080", 
+        "#C00000", "#00C000", "#0000C0", "#C0C000", "#C000C0", "#00C0C0", "#C0C0C0", 
+        "#400000", "#004000", "#000040", "#404000", "#400040", "#004040", "#404040", 
+        "#200000", "#002000", "#000020", "#202000", "#200020", "#002020", "#202020", 
+        "#600000", "#006000", "#000060", "#606000", "#600060", "#006060", "#606060", 
+        "#A00000", "#00A000", "#0000A0", "#A0A000", "#A000A0", "#00A0A0", "#A0A0A0", 
+        "#E00000", "#00E000", "#0000E0", "#E0E000", "#E000E0", "#00E0E0", "#E0E0E0"]
+
     plot = plotille.Figure()
     
     # set some standard plot settings
@@ -132,13 +145,19 @@ def plot(stocks, config):
     plot.set_x_limits(min_=datetime.now().replace(hour=14, minute=30, second=0).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["kwargs"]["timezone"])), 
                       max_=datetime.now().replace(hour=21, minute=0, second=0).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(config["kwargs"]["timezone"])))
     plot.set_y_limits(min_=y_min, max_=y_max)
-    plot.color_mode = 'byte'
+    plot.color_mode = "rgb"
     plot.X_label="Time"
     plot.Y_label="Value"
 
     for i, stock in enumerate(stocks):
-        plot.plot([datetime.now().replace(hour=7, minute=30, second=0) + timedelta(minutes=i) for i in range(len(stocks[stock]))], 
-                  stocks[stock], lc=25+i*100, label=stock)
+        if stocks[stock][0] == None:
+            plot.plot([datetime.now().replace(hour=7, minute=30, second=0) + timedelta(minutes=i) for i in range(len(stocks[stock][1]))], 
+                      stocks[stock][1], lc=webcolors.hex_to_rgb(auto_colors[i % 67]), label=stock)
+        else:
+            color = webcolors.hex_to_rgb(webcolors.CSS3_NAMES_TO_HEX[stocks[stock][0]])
+            plot.plot([datetime.now().replace(hour=7, minute=30, second=0) + timedelta(minutes=i) for i in range(len(stocks[stock][1]))], 
+                      stocks[stock][1], lc=color, label=stock)
+            
 
     print(plot.show(legend=True))
 
@@ -150,10 +169,10 @@ def find_y_range(stocks):
     y_max = 0
 
     for stock in stocks:
-        if y_min > min(stocks[stock]):
-            y_min = min(stocks[stock])
-        if y_max < max(stocks[stock]):
-            y_max = max(stocks[stock])
+        if y_min > min(stocks[stock][1]):
+            y_min = min(stocks[stock][1])
+        if y_max < max(stocks[stock][1]):
+            y_max = max(stocks[stock][1])
 
     return y_min, y_max
 
