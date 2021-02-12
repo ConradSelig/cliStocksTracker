@@ -1,5 +1,5 @@
-plotille
-numpy
-yfinance
-pytz
-colorama
+plotille>=3.7.2
+numpy>=1.19.5
+yfinance>=0.1.55
+pytz>=2021.1
+colorama>=0.4.4
