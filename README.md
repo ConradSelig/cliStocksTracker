@@ -29,7 +29,7 @@ $ python3 -m pip install -r requirements.txt
 
 ## Usage
 ```
-$ python3 main.py
+$ python3 cliStocksTracker.py
 ```
 ## Configuration
 
