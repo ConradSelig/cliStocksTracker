@@ -136,6 +136,15 @@ class Stock:
     def calc_value(self, stocks_count):
         return self.data[-1] * stocks_count
 
+    def get_curr(self):
+        return self.data[-1]
+
+    def get_open(self):
+        return self.data[0]
+
+    def get_data(self):
+        return self.data
+
     def __repr__(self):
         print("Stock:", self.symbol, " ", self.value, " ", len(self.data), " ", self.graph)
 
@@ -144,11 +153,13 @@ class Portfolio(metaclass=Singleton):
     def __init__(self, *args, **kwargs):
         self.stocks = []
         self.stocks_metadata = {}
+        self.initial_value = 0
         return
 
     def add_stock(self, stock: Stock, count, value):
         self.stocks.append(stock)
         self.stocks_metadata[stock.symbol] = [float(count), float(value)]
+        self.initial_value += self.stocks_metadata[stock.symbol][0] * self.stocks_metadata[stock.symbol][1]
         return
 
     def get_stocks(self):
@@ -161,20 +172,77 @@ class Portfolio(metaclass=Singleton):
         return None
     
     def print_table(self):
-        print("Portfolio Summary:")
+        # table format:
+        #   ticker    owned   last    change  change% low high    avg
+        # each row will also get a bonus boolean at the end denoting what color to print the line:
+        #   None = don't color (headers)
+        #   True = green
+        #   False = red
+        # additional things to print: portfolio total value, portfolio change (and change %)
+        cell_width = 11  # buffer space between columns
+        table = [["Ticker", "Last", "Change", "Change%", "Low", "High", "Avg", "Owned", "Aggregate Value", None]]
+        table.append(["-" * cell_width for _ in range(len(table[0]))])  # this is the solid line under the header
+        table[-1].append(None)  # make sure that solid line is not colored
         self.current_value = 0
+        self.opening_value = 0
         for stock in self.stocks:
-            current_metadata = self.stocks_metadata[stock.symbol]
-            print(f"\t{stock.symbol} {current_metadata[0]}@{round(stock.calc_value(1), 2)}: ", end="") 
-            print(f"${round(stock.calc_value(current_metadata[0]), 2)} ", end="")
-            if stock.calc_value(current_metadata[0]) > current_metadata[0] * current_metadata[1]:
-                print(Fore.GREEN + " $" + str(round(stock.calc_value(current_metadata[0]) - current_metadata[0] * current_metadata[1], 2)))
+            line = []
+            change_d = round(stock.get_curr() - stock.get_open(), 2)  # change
+            change_p = round((stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, 2)  # change %
+            line.append(stock.symbol)  # symbol
+            line.append("$" + str(round(stock.get_curr(), 2)))  # current value
+            if change_d >= 0:  # insert the changes into the array
+                line.append("+$" + str(change_d))
+                line.append("+" + str(change_p) + "%")
             else:
-                print(Fore.RED + " $" + str(round(current_metadata[0] * current_metadata[1] - stock.calc_value(current_metadata[0]), 2)))
-            print(Style.RESET_ALL, end="")
-            self.current_value += stock.calc_value(current_metadata[0])
-        print(f"Total Value: ${round(self.current_value, 2)}")
+                line.append("-$" + str(change_d)[1:])  # string stripping here is to remove the native '-' sign
+                line.append("-" + str(change_p)[1:]+ "%")
+            line.append("$" + str(round(min(stock.get_data()), 2)))  # low
+            line.append("$" + str(round(max(stock.get_data()), 2)))  # high
+            line.append("$" + str(round(sum(stock.get_data()) / len(stock.get_data()), 2)))  # avg
+            line.append(str(round(self.stocks_metadata[stock.symbol][0], 3)))  # number of stocks owned
+            line.append("$" + str(round(stock.calc_value(self.stocks_metadata[stock.symbol][0]), 2)))
+            line.append(True if change_d >=0 else False)
+            table.append(line)
 
+            # just add in the total value seeing as we're iterating stocks anyways
+            self.current_value += stock.calc_value(self.stocks_metadata[stock.symbol][0])
+            # and the opening value of all the tracked stocks
+            self.opening_value += stock.get_open() * self.stocks_metadata[stock.symbol][0]
+
+        print("\nPortfolio Summary:\n")
+        format_str = "{:" + str(cell_width) + "}"
+        for line in table:
+            if line[-1] is None:
+                pass
+            elif line[-1]:
+                print(Fore.GREEN, end="")
+            else:
+                print(Fore.RED, end="")
+            print('\t' + ''.join([format_str.format(item) for item in line[:-1]]))
+            print(Style.RESET_ALL, end="") 
+        print("\n" + "{:25}".format("Total Value: ") + format_str.format("$" + str(round(self.current_value, 2))))
+        value_gained_day = self.current_value - self.opening_value
+        if value_gained_day >= 0:
+            print("{:25}".format("Value Gained Today: "), end="")
+            print(Fore.GREEN, end="")
+            print(format_str.format("+$" + str(round(value_gained_day, 2))) + format_str.format("+" + str(round(value_gained_day / self.current_value * 100, 2)) + "%"))
+        else:
+            print("{:25}".format("Value Gained Today: "), end="")
+            print(Fore.RED, end="")
+            print(format_str.format("-$" + str(round(value_gained_day, 2))[1:]) + format_str.format(str(round(value_gained_day / self.current_value * 100, 2)) + "%"))
+        print(Style.RESET_ALL, end="")
+
+        value_gained_all = self.current_value - self.initial_value
+        if value_gained_all >= 0:
+            print("{:25}".format("Value Gained Overall: "), end="") 
+            print(Fore.GREEN, end="")
+            print(format_str.format("+$" + str(round(value_gained_all, 2))) + format_str.format("+" + str(round(value_gained_all / self.current_value * 100, 2)) + "%"))
+        else:
+            print("{:25}".format("Value Gained Overall: "), end="") 
+            print(Fore.RED, end="")
+            print(format_str.format("-$" + str(round(value_gained_all, 2))[1:]) + format_str.format(str(round(value_gained_all / self.current_value * 100, 2)) + "%"))
+        print(Style.RESET_ALL, end="")
 
 
 class Graph:
