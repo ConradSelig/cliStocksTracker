@@ -16,5 +16,4 @@ def round_value(value, mode, decimal_places):
         factor = 10.0 ** decimal_places
         return trunc(value * factor) / factor
         
-print(round_value("down", 1.59473, 3))
         
