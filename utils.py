@@ -11,7 +11,7 @@ def round_value(value, mode, decimal_places):
         elif decimal_places < 0:
             raise ValueError("The number of decimal places has to be positive")
         elif decimal_places == 0:
-            return trunc(value, decimal_places)
+            return trunc(value)
         
         factor = 10.0 ** decimal_places
         return trunc(value * factor) / factor
