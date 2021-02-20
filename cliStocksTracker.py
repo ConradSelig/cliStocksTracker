@@ -7,6 +7,8 @@ import contextlib
 import numpy as np
 import yfinance as market
 
+import utils
+
 from matplotlib import colors
 from colorama import Fore, Style
 from datetime import datetime, timedelta
@@ -79,7 +81,7 @@ def main():
         graph.gen_graph()
         graph.draw()
 
-    portfolio.print_table()
+    portfolio.print_table(config)
 
     return
 
@@ -171,7 +173,7 @@ class Portfolio(metaclass=Singleton):
                 return stock
         return None
     
-    def print_table(self):
+    def print_table(self, config):
         # table format:
         #   ticker    owned   last    change  change% low high    avg
         # each row will also get a bonus boolean at the end denoting what color to print the line:
@@ -179,6 +181,7 @@ class Portfolio(metaclass=Singleton):
         #   True = green
         #   False = red
         # additional things to print: portfolio total value, portfolio change (and change %)
+        mode = config["kwargs"]["rounding_mode"]
         cell_width = 11  # buffer space between columns
         table = [["Ticker", "Last", "Change", "Change%", "Low", "High", "Avg", "Owned", "Aggregate Value", None]]
         table.append(["-" * cell_width for _ in range(len(table[0]))])  # this is the solid line under the header
@@ -187,21 +190,21 @@ class Portfolio(metaclass=Singleton):
         self.opening_value = 0
         for stock in self.stocks:
             line = []
-            change_d = round(stock.get_curr() - stock.get_open(), 2)  # change
-            change_p = round((stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, 2)  # change %
+            change_d = utils.round_value(stock.get_curr() - stock.get_open(), mode, 2)  # change
+            change_p = utils.round_value((stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, mode, 2)  # change %
             line.append(stock.symbol)  # symbol
-            line.append("$" + str(round(stock.get_curr(), 2)))  # current value
+            line.append("$" + str(utils.round_value(stock.get_curr(), mode, 2)))  # current value
             if change_d >= 0:  # insert the changes into the array
                 line.append("+$" + str(change_d))
                 line.append("+" + str(change_p) + "%")
             else:
                 line.append("-$" + str(change_d)[1:])  # string stripping here is to remove the native '-' sign
                 line.append("-" + str(change_p)[1:]+ "%")
-            line.append("$" + str(round(min(stock.get_data()), 2)))  # low
-            line.append("$" + str(round(max(stock.get_data()), 2)))  # high
-            line.append("$" + str(round(sum(stock.get_data()) / len(stock.get_data()), 2)))  # avg
+            line.append("$" + str(utils.round_value(min(stock.get_data()), mode, 2)))  # low
+            line.append("$" + str(utils.round_value(max(stock.get_data()), mode, 2)))  # high
+            line.append("$" + str(utils.round_value(sum(stock.get_data()) / len(stock.get_data()), mode, 2)))  # avg
             line.append(str(round(self.stocks_metadata[stock.symbol][0], 3)))  # number of stocks owned
-            line.append("$" + str(round(stock.calc_value(self.stocks_metadata[stock.symbol][0]), 2)))
+            line.append("$" + str(utils.round_value(stock.calc_value(self.stocks_metadata[stock.symbol][0]), mode, 2)))
             line.append(True if change_d >=0 else False)
             table.append(line)
 
@@ -226,22 +229,22 @@ class Portfolio(metaclass=Singleton):
         if value_gained_day >= 0:
             print("{:25}".format("Value Gained Today: "), end="")
             print(Fore.GREEN, end="")
-            print(format_str.format("+$" + str(round(value_gained_day, 2))) + format_str.format("+" + str(round(value_gained_day / self.current_value * 100, 2)) + "%"))
+            print(format_str.format("+$" + str(utils.round_value(value_gained_day, mode, 2))) + format_str.format("+" + str(utils.round_value(value_gained_day / self.current_value * 100, mode, 2)) + "%"))
         else:
             print("{:25}".format("Value Gained Today: "), end="")
             print(Fore.RED, end="")
-            print(format_str.format("-$" + str(round(value_gained_day, 2))[1:]) + format_str.format(str(round(value_gained_day / self.current_value * 100, 2)) + "%"))
+            print(format_str.format("-$" + str(utils.round_value(value_gained_day, mode, 2))[1:]) + format_str.format(str(utils.round_value(value_gained_day / self.current_value * 100, mode, 2)) + "%"))
         print(Style.RESET_ALL, end="")
 
         value_gained_all = self.current_value - self.initial_value
         if value_gained_all >= 0:
             print("{:25}".format("Value Gained Overall: "), end="") 
             print(Fore.GREEN, end="")
-            print(format_str.format("+$" + str(round(value_gained_all, 2))) + format_str.format("+" + str(round(value_gained_all / self.current_value * 100, 2)) + "%"))
+            print(format_str.format("+$" + str(utils.round_value(value_gained_all, mode, 2))) + format_str.format("+" + str(utils.round_value(value_gained_all / self.current_value * 100, mode, 2)) + "%"))
         else:
             print("{:25}".format("Value Gained Overall: "), end="") 
             print(Fore.RED, end="")
-            print(format_str.format("-$" + str(round(value_gained_all, 2))[1:]) + format_str.format(str(round(value_gained_all / self.current_value * 100, 2)) + "%"))
+            print(format_str.format("-$" + str(utils.round_value(value_gained_all, mode, 2))[1:]) + format_str.format(str(utils.round_value(value_gained_all / self.current_value * 100, mode, 2)) + "%"))
         print(Style.RESET_ALL, end="")
 
 

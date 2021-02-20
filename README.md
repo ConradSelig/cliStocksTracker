@@ -44,6 +44,7 @@ frame:
 kwargs:
   independent_graphs: [ True | False ]
   timezone: [ pytz timezone stamp (ex. "America/New_York", "Asia/Shanghai", etc) ]
+  round_mode: [math | down]
 ```
 If indepentant_graphs is True, all the given stocks will be graphed on the same plot, otherwise all of the given stocks will be printed on independent plots.
 There is currently no grouping of stocks, either manual or automatic (planned).
