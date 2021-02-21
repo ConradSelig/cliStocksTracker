@@ -19,6 +19,7 @@ Requirements:
   * yfinance >= 0.1.55
   * pytz >= 2021.1
   * colorama >= 0.4.4
+  * webcolors==1.11.1
   
 ### Manual
 ```
@@ -44,9 +45,9 @@ frame:
 kwargs:
   independent_graphs: [ True | False ]
   timezone: [ pytz timezone stamp (ex. "America/New_York", "Asia/Shanghai", etc) ]
-  round_mode: [math | down]
+  rounding_mode: [math | down]
 ```
-If indepentant_graphs is True, all the given stocks will be graphed on the same plot, otherwise all of the given stocks will be printed on independent plots.
+If independent_graphs is True, all the given stocks will be graphed on the same plot, otherwise all of the given stocks will be printed on independent plots.
 There is currently no grouping of stocks, either manual or automatic (planned).
 
 **All keys in the config file are required.**
@@ -66,7 +67,7 @@ There is currently no grouping of stocks, either manual or automatic (planned).
 ```
 
 Each stock symbol has three additional config settings:
-1. "graph": Determins if a graph is plotted of this symbol
+1. "graph": Determines if a graph is plotted of this symbol
 2. "owned": Count of the number of stocks owned of this symbol
 3. "bought_at": Price the stocks we're originally bought at, this is used to calculate portfolio delta.
 
