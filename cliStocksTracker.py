@@ -1,13 +1,13 @@
 import io
 import pytz
+import utils
 import plotille
 import webcolors
 import contextlib
+import configparser
 
 import numpy as np
 import yfinance as market
-
-import utils
 
 from matplotlib import colors
 from colorama import Fore, Style
@@ -16,8 +16,10 @@ from datetime import datetime, timedelta
 
 def main():
 
-    config = Configuration("./config")
-    stocks_config = Configuration("./stocks_config")
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    stocks_config = configparser.ConfigParser()
+    stocks_config.read("portfolio.ini")
     portfolio = Portfolio()
     graphs = []
 
@@ -29,8 +31,8 @@ def main():
         "#600000", "#006000", "#000060", "#606000", "#600060", "#006060", "#606060", 
         "#A00000", "#00A000", "#0000A0", "#A0A000", "#A000A0", "#00A0A0", "#A0A0A0", 
         "#E00000", "#00E000", "#0000E0", "#E0E000", "#E000E0", "#00E0E0", "#E0E0E0"]
-    
-    for stock in stocks_config:
+
+    for stock in stocks_config.sections():
         new_stock = Stock(stock)
 
         # get the stock data
@@ -47,16 +49,16 @@ def main():
         new_stock.value = data[-1] 
 
         # are we graphing this stock?
-        if "graph" in stocks_config[stock].keys():
+        if "graph" in list(stocks_config[stock].keys()):
             if stocks_config[stock]["graph"] == "True":
                 new_stock.graph = True
        
-        if "owned" in stocks_config[stock].keys():
+        if "owned" in list(stocks_config[stock].keys()):
             count = float(stocks_config[stock]["owned"])
         else:
             count = 0
 
-        if "bought_at" in stocks_config[stock].keys():
+        if "bought_at" in list(stocks_config[stock].keys()):
             bought_at = float(stocks_config[stock]["bought_at"])
         else:
             bought_at = None
@@ -65,18 +67,20 @@ def main():
         portfolio.add_stock(new_stock, count, bought_at)
 
     # create the graph objects, the number is dependant on if independent graphing is on or not
-    if config["kwargs"]["independent_graphs"] == "False":
+    if config["General"]["independent_graphs"] == "False":
         graphing_list = []
         for stock in portfolio.get_stocks():
+            print(stock.graph)
             if stock.graph:
                 graphing_list.append(stock)
-        graphs.append(Graph(graphing_list, int(config["frame"]["width"]), int(config["frame"]["height"]), auto_colors[:len(graphing_list)]))
+        graphs.append(Graph(graphing_list, int(config["Frame"]["width"]), int(config["Frame"]["height"]), auto_colors[:len(graphing_list)], timezone=config["General"]["timezone"]))
     else:
         for i, stock in enumerate(portfolio.get_stocks()):
             if stock.graph:
-                graphs.append(Graph([stock], int(config["frame"]["width"]), int(config["frame"]["height"]), [auto_colors[i]]))
+                graphs.append(Graph([stock], int(config["Frame"]["width"]), int(config["Frame"]["height"]), [auto_colors[i]], timezone=config["General"]["timezone"]))
 
     # generate and print the graphs
+    print(graphs[0].stocks)
     for graph in graphs:
         graph.gen_graph()
         graph.draw()
@@ -92,39 +96,6 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
-
-
-class Configuration:
-    def __init__(self, config_filepath: str, *args, **kwargs):
-        self.config_filepath = config_filepath
-        self.config = self.parse_config()
-        return
-
-    def __iter__(self):
-        return iter(self.config.keys())  # just like a dictionary would do
-
-    def __getitem__(self, key):
-        return self.config[key]
-
-    def parse_config(self) -> (dict, None):
-        config = {}
-        last_key = ""
-
-        # grab all the config lines
-        with open(self.config_filepath, "r") as config_file:
-            filedata = config_file.read().splitlines()
-
-        for line in filedata:
-            # if the line is not indented
-            if line[0] != " " and line[0] != "\t":
-                config[line.replace(":", "")] = {}
-                last_key = line.replace(":", "")
-            # otherwise, it's a subkey
-            else:
-                pair = line.split(":")
-                config[last_key][pair[0].strip()] = pair[1].strip()
-
-        return config
 
 
 class Stock:
@@ -147,8 +118,8 @@ class Stock:
     def get_data(self):
         return self.data
 
-    def __repr__(self):
-        print("Stock:", self.symbol, " ", self.value, " ", len(self.data), " ", self.graph)
+    def __str__(self):
+        return "Stock:" + str(self.symbol) + " " + str(self.value) + " " + str(len(self.data)) + " " + str(self.graph)
 
 
 class Portfolio(metaclass=Singleton):
@@ -181,7 +152,7 @@ class Portfolio(metaclass=Singleton):
         #   True = green
         #   False = red
         # additional things to print: portfolio total value, portfolio change (and change %)
-        mode = config["kwargs"]["rounding_mode"]
+        mode = config["General"]["rounding_mode"]
         cell_width = 11  # buffer space between columns
         table = [["Ticker", "Last", "Change", "Change%", "Low", "High", "Avg", "Owned", "Aggregate Value", None]]
         table.append(["-" * cell_width for _ in range(len(table[0]))])  # this is the solid line under the header
@@ -260,6 +231,9 @@ class Graph:
         self.plot.color_mode = "rgb"
         self.plot.X_label="Time"
         self.plot.Y_label="Value"
+
+
+        print(kwargs)
 
         if "timezone" in kwargs.keys():
             self.timezone = pytz.timezone(kwargs["timezone"])
