@@ -34,35 +34,39 @@ $ python3 cliStocksTracker.py
 ```
 ## Configuration
 
-cliStocksTracker relies on two config files, "config" and "stocks_config".
+cliStocksTracker relies on two config files, "config.ini" and "portfolio.ini".
 
-### config
+### config.ini
 
 ```
-frame:
-  width: [ graph width ]
-  height: [ graph height ]
-kwargs:
-  independent_graphs: [ True | False ]
-  timezone: [ pytz timezone stamp (ex. "America/New_York", "Asia/Shanghai", etc) ]
-  rounding_mode: [math | down]
+[Frame]
+width=[ graph width ]
+height=[ graph height ]
+
+[General]
+independent_graphs=[ True | False ]
+timezone=[ pytz timezone stamp (ex. "America/New_York", "Asia/Shanghai", etc) ]
+rounding_mode=[math | down]
 ```
 If independent_graphs is True, all the given stocks will be graphed on the same plot, otherwise all of the given stocks will be printed on independent plots.
 There is currently no grouping of stocks, either manual or automatic (planned).
 
-**All keys in the config file are required.**
+A default config.ini is packaged with the project.
 
-### stocks_config
+**All keys in config.ini file are required.**
+
+### portfolio.ini
 
 ```
-[ stock symbol ]:
-  graph: [ True | False ]
-  owned: [ float ]
-  bought_at: [ float ]
-[ stock symbol ]:
-  graph: [ True | False ]
-  owned: [ float ]
-  bought_at: [ float ]
+[ stock symbol ]
+graph=[ True | False ]
+owned=[ float ]
+bought_at=[ float ]
+
+[ stock symbol ]
+graph=[ True | False ]
+owned=[ float ]
+bought_at=[ float ]
 ...
 ```
 
@@ -75,4 +79,4 @@ There is currently no support for stocks of the same label being bought at diffe
 
 There is currently no support for custom selection of symbol colors within a graph (planned).
 
-**All keys in the stocks_config file are optional.**
+**"owned" and "bought_at" are required keys, all others optional."**
