@@ -23,6 +23,29 @@ def main():
     portfolio = Portfolio()
     graphs = []
 
+    # verify that the config is valid
+    config_keys = {"DEFAULT": [], "Frame": ["width", "height"], "General": ["independent_graphs", "timezone", "rounding_mode"]}    
+    if list(config_keys.keys()) != list(config.keys()):
+        print("Invalid config.ini, there is a missing section.")
+        return
+    for section in config_keys:
+        if config_keys[section] != list(config[section].keys()):
+            print("Invalid config.ini, " + section + " is missing keys.")
+            return
+    
+    # check that at least one stock is in portfolio.ini
+    if list(stocks_config.keys()) == ["DEFAULT"]:
+        print("portfolio.ini has no stocks added or does not exist. There is nothing to show.")
+        return
+    # and that the two required keys for each stock exist
+    for key in list(stocks_config.keys()):
+        if key == "DEFAULT":
+            continue
+        if "owned" not in list(stocks_config[key].keys()) and "bought_at" not in list(stocks_config[key].keys()):
+            print("The stock '" + key + "' is missing a required section." / 
+                    "Each stock in the portfolio must have an \"owned\" and a \"bought_at\" attribute.")
+
+
     auto_colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#000000", 
         "#800000", "#008000", "#000080", "#808000", "#800080", "#008080", "#808080", 
         "#C00000", "#00C000", "#0000C0", "#C0C000", "#C000C0", "#00C0C0", "#C0C0C0", 
@@ -70,17 +93,16 @@ def main():
     if config["General"]["independent_graphs"] == "False":
         graphing_list = []
         for stock in portfolio.get_stocks():
-            print(stock.graph)
             if stock.graph:
                 graphing_list.append(stock)
-        graphs.append(Graph(graphing_list, int(config["Frame"]["width"]), int(config["Frame"]["height"]), auto_colors[:len(graphing_list)], timezone=config["General"]["timezone"]))
+        if len(graphing_list) > 0:
+            graphs.append(Graph(graphing_list, int(config["Frame"]["width"]), int(config["Frame"]["height"]), auto_colors[:len(graphing_list)], timezone=config["General"]["timezone"]))
     else:
         for i, stock in enumerate(portfolio.get_stocks()):
             if stock.graph:
                 graphs.append(Graph([stock], int(config["Frame"]["width"]), int(config["Frame"]["height"]), [auto_colors[i]], timezone=config["General"]["timezone"]))
 
     # generate and print the graphs
-    print(graphs[0].stocks)
     for graph in graphs:
         graph.gen_graph()
         graph.draw()
@@ -231,9 +253,6 @@ class Graph:
         self.plot.color_mode = "rgb"
         self.plot.X_label="Time"
         self.plot.Y_label="Value"
-
-
-        print(kwargs)
 
         if "timezone" in kwargs.keys():
             self.timezone = pytz.timezone(kwargs["timezone"])
