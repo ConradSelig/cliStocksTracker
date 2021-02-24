@@ -5,6 +5,7 @@ import plotille
 import webcolors
 import contextlib
 import configparser
+import argparse
 
 import numpy as np
 import yfinance as market
@@ -17,15 +18,218 @@ import autocolors
 
 
 def main():
-
     config = configparser.ConfigParser()
-    config.read("config.ini")
     stocks_config = configparser.ConfigParser()
-    stocks_config.read("portfolio.ini")
+    args = parse_args()
+
     portfolio = Portfolio()
     graphs = []
 
-    # verify that the config is valid
+    # get config path
+    config_path = "config.ini"
+    portfolio_path = "portfolio.ini"
+    if args.config:
+        config_path = args.config
+    if args.portfolio_config:
+        portfolio_path = args.portfolio_config
+
+    # generate config files
+    if args.generate_config:
+        gen_config_files(config_path, portfolio_path)
+
+    # read config files
+    config.read(config_path)
+    stocks_config.read(portfolio_path)
+
+    # verify that config files are correct
+    verify_config_keys(config, stocks_config)
+
+    # get timezone for graph
+    cfg_timezone = config["General"]["timezone"]
+    if args.timezone:
+        cfg_timezone = args.timezone
+
+    # get rounding mode
+    rounding_mode = config["General"]["rounding_mode"]
+    if args.rounding_mode:
+        rounding_mode = args.rounding_mode
+
+    # get graph height/width
+    graph_width = int(config["Frame"]["width"])
+    graph_height = int(config["Frame"]["height"])
+    if args.width:
+        graph_width = args.graph_width
+    if args.height:
+        graph_height = args.graph_height
+
+    # TODO: refactor suggestion: turn this loop a function like populate_portfolio() or a
+    # method for the Portfolio class like portfolio.populate()
+    for stock in stocks_config.sections():
+        new_stock = Stock(stock)
+
+        # get graph time interval and period
+        time_period = "1d"
+        time_interval = "1m"
+        if args.time_period:
+            time_period = args.time_period
+        if args.time_interval:
+            time_interval = args.time_interval
+
+        # get the stock data
+        with contextlib.redirect_stdout(
+            io.StringIO()
+        ):  # this suppress output (library doesn't have a silent mode?)
+            data = market.download(
+                tickers=stock, period=time_period, interval=time_interval
+            )
+
+        # just get the value at each minute
+        data = data[["Open"]].to_numpy()
+        data = [_[0] for _ in data]
+        # and save that parsed data
+        new_stock.data = data
+
+        # save the current stock value
+        new_stock.value = data[-1]
+
+        # are we graphing this stock?
+        if "graph" in list(stocks_config[stock].keys()):
+            if stocks_config[stock]["graph"] == "True":
+                new_stock.graph = True
+
+        if "owned" in list(stocks_config[stock].keys()):
+            count = float(stocks_config[stock]["owned"])
+        else:
+            count = 0
+
+        if "bought_at" in list(stocks_config[stock].keys()):
+            bought_at = float(stocks_config[stock]["bought_at"])
+        else:
+            bought_at = None
+
+        # finally, add the stock to the portfolio
+        portfolio.add_stock(new_stock, count, bought_at)
+
+    # TODO: refactor suggestion: could turn this into a function/method too...
+    # something like create_graphs() or portfolio.create_graphs()
+    # create the graph objects, the number is dependant on if independent graphing is on or not
+    if (
+        config["General"]["independent_graphs"] == "False"
+        or not args.independent_graphs
+    ):
+        graphing_list = []
+        for stock in portfolio.get_stocks():
+            if stock.graph:
+                graphing_list.append(stock)
+        if len(graphing_list) > 0:
+            graphs.append(
+                Graph(
+                    graphing_list,
+                    graph_width,
+                    graph_height,
+                    autocolors.color_list[: len(graphing_list)],
+                    timezone=cfg_timezone,
+                )
+            )
+    else:
+        for i, stock in enumerate(portfolio.get_stocks()):
+            if stock.graph:
+                graphs.append(
+                    Graph(
+                        [stock],
+                        graph_width,
+                        graph_height,
+                        [autocolors.color_list[i]],
+                        timezone=cfg_timezone,
+                    )
+                )
+
+    # generate and print the graphs
+    for graph in graphs:
+        graph.gen_graph()
+        graph.draw()
+
+    portfolio.print_table(config, rounding_mode)
+
+    return
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Options for cliStockTracker.py")
+    parser.add_argument("--width", type=int, help="integer for the width of the chart")
+    parser.add_argument("--height", type=int, help="integer the height of the chart")
+    parser.add_argument(
+        "--independent-graphs",
+        action="store_true",
+        help="show a chart for each stock",
+    )
+    parser.add_argument(
+        "--timezone",
+        type=str,
+        default="America/New_York",
+        help="your timezone (ex: America/New_York",
+    )
+    parser.add_argument(
+        "-r",
+        "--rounding-mode",
+        type=str,
+        help="how should numbers be rounded (math | down)",
+    )
+    parser.add_argument(
+        "-ti",
+        "--time-interval",
+        type=str,
+        help="specify time interval for graphs (ex: 1m, 15m, 1h)",
+    )
+    parser.add_argument(
+        "-tp",
+        "--time-period",
+        type=str,
+        help="specify time period for graphs (ex: 15m, 1h, 1d)",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="path to a config.ini file",
+    )
+    parser.add_argument(
+        "--portfolio-config",
+        type=str,
+        help="path to a portfolio.ini file with your list of stonks",
+    )
+    parser.add_argument(
+        "--generate-config", action="store_true", help="generates example config files"
+    )
+    args = parser.parse_args()
+    return args
+
+
+def gen_config_files(config_path, portfolio_path):
+    example_config_str = """\
+[Frame]
+width=80
+height=20
+
+[General]
+independent_graphs=False
+timezone=America/New_York
+rounding_mode=math
+"""
+
+    example_portfolio_str = """\
+[ AAPL ]
+graph=True
+owned=10
+bought_at=100
+"""
+
+    with open(config_path, "w") as config_file:
+        config_file.write(example_config_str)
+    with open(portfolio_path, "w") as portfolio_file:
+        portfolio_file.write(example_portfolio_str)
+
+
+def verify_config_keys(config, stocks_config):
     config_keys = {
         "DEFAULT": [],
         "Frame": ["width", "height"],
@@ -56,122 +260,8 @@ def main():
                 "The stock '"
                 + key
                 + "' is missing a required section."
-                / 'Each stock in the portfolio must have an "owned" and a "bought_at" attribute.'
+                + 'Each stock in the portfolio must have an "owned" and a "bought_at" attribute.'
             )
-
-    for stock in stocks_config.sections():
-        new_stock = Stock(stock)
-
-        # get the stock data
-        with contextlib.redirect_stdout(
-            io.StringIO()
-        ):  # this suppress output (library doesn't have a silent mode?)
-            data = market.download(tickers=stock, period="1d", interval="1m")
-
-        # just get the value at each minute
-        data = data[["Open"]].to_numpy()
-        data = [_[0] for _ in data]
-        # and save that parsed data
-        new_stock.data = data
-
-        # save the current stock value
-        new_stock.value = data[-1]
-
-        # are we graphing this stock?
-        if "graph" in list(stocks_config[stock].keys()):
-            if stocks_config[stock]["graph"] == "True":
-                new_stock.graph = True
-
-        if "owned" in list(stocks_config[stock].keys()):
-            count = float(stocks_config[stock]["owned"])
-        else:
-            count = 0
-
-        if "bought_at" in list(stocks_config[stock].keys()):
-            bought_at = float(stocks_config[stock]["bought_at"])
-        else:
-            bought_at = None
-
-        # finally, add the stock to the portfolio
-        portfolio.add_stock(new_stock, count, bought_at)
-
-    # create the graph objects, the number is dependant on if independent graphing is on or not
-    if config["General"]["independent_graphs"] == "False":
-        graphing_list = []
-        for stock in portfolio.get_stocks():
-            if stock.graph:
-                graphing_list.append(stock)
-        if len(graphing_list) > 0:
-            graphs.append(
-                Graph(
-                    graphing_list,
-                    int(config["Frame"]["width"]),
-                    int(config["Frame"]["height"]),
-                    autocolors.color_list[: len(graphing_list)],
-                    timezone=config["General"]["timezone"],
-                )
-            )
-    else:
-        for i, stock in enumerate(portfolio.get_stocks()):
-            if stock.graph:
-                graphs.append(
-                    Graph(
-                        [stock],
-                        int(config["Frame"]["width"]),
-                        int(config["Frame"]["height"]),
-                        [autocolors.color_list[i]],
-                        timezone=config["General"]["timezone"],
-                    )
-                )
-
-    # generate and print the graphs
-    for graph in graphs:
-        graph.gen_graph()
-        graph.draw()
-
-    portfolio.print_table(config)
-
-    return
-
-
-def parse_args(self):
-    parser = argparse.ArgumentParser(description="Take options for cliStockTracker.py")
-    parser.add_argument("-w", "--width", type=int, help="the width of the chart")
-    parser.add_argument("-h", "--height", type=int, help="the height of the chart")
-    parser.add_argument(
-        "-i",
-        "--independent-graphs",
-        action="store_true",
-        help="show a chart for each stock",
-    )
-    parser.add_argument(
-        "-tz",
-        "--timezone",
-        type=str,
-        default="America/New_York",
-        help="your timezione",
-    )
-    parser.add_argument(
-        "-r", "--rounding-mode", type=str, help="how should numbers be rounded"
-    )
-    parser.add_argument(
-        "-ti", "--time-interval", type=str, help="specify time interval for graphs"
-    )
-    parser.add_argument(
-        "-tp", "--time-period", type=str, help="specify time period for graphs"
-    )
-    parser.add_argument(
-        "--config",
-        type=argparse.FileType("r", encoding="utf-8"),
-        help="regular config file",
-    )
-    parser.add_argument(
-        "--stocks-config",
-        type=argparse.FileType("r", encoding="utf-8"),
-        help="config file with your list of stonks",
-    )
-    args = parser.parse_args()
-    return args
 
 
 class Singleton(type):
@@ -241,7 +331,7 @@ class Portfolio(metaclass=Singleton):
                 return stock
         return None
 
-    def print_table(self, config):
+    def print_table(self, mode):
         # table format:
         #   ticker    owned   last    change  change% low high    avg
         # each row will also get a bonus boolean at the end denoting what color to print the line:
@@ -249,7 +339,7 @@ class Portfolio(metaclass=Singleton):
         #   True = green
         #   False = red
         # additional things to print: portfolio total value, portfolio change (and change %)
-        mode = config["General"]["rounding_mode"]
+
         cell_width = 11  # buffer space between columns
         table = [
             [
