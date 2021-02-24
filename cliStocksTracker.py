@@ -1,13 +1,13 @@
 import io
 import pytz
+import utils
 import plotille
 import webcolors
 import contextlib
+import configparser
 
 import numpy as np
 import yfinance as market
-
-import utils
 
 from matplotlib import colors
 from colorama import Fore, Style
@@ -16,25 +16,113 @@ from datetime import datetime, timedelta
 
 def main():
 
-    config = Configuration("./config")
-    stocks_config = Configuration("./stocks_config")
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    stocks_config = configparser.ConfigParser()
+    stocks_config.read("portfolio.ini")
     portfolio = Portfolio()
     graphs = []
 
-    auto_colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#000000", 
-        "#800000", "#008000", "#000080", "#808000", "#800080", "#008080", "#808080", 
-        "#C00000", "#00C000", "#0000C0", "#C0C000", "#C000C0", "#00C0C0", "#C0C0C0", 
-        "#400000", "#004000", "#000040", "#404000", "#400040", "#004040", "#404040", 
-        "#200000", "#002000", "#000020", "#202000", "#200020", "#002020", "#202020", 
-        "#600000", "#006000", "#000060", "#606000", "#600060", "#006060", "#606060", 
-        "#A00000", "#00A000", "#0000A0", "#A0A000", "#A000A0", "#00A0A0", "#A0A0A0", 
-        "#E00000", "#00E000", "#0000E0", "#E0E000", "#E000E0", "#00E0E0", "#E0E0E0"]
-    
-    for stock in stocks_config:
+    # verify that the config is valid
+    config_keys = {
+        "DEFAULT": [],
+        "Frame": ["width", "height"],
+        "General": ["independent_graphs", "timezone", "rounding_mode"],
+    }
+    if list(config_keys.keys()) != list(config.keys()):
+        print("Invalid config.ini, there is a missing section.")
+        return
+    for section in config_keys:
+        if config_keys[section] != list(config[section].keys()):
+            print("Invalid config.ini, " + section + " is missing keys.")
+            return
+
+    # check that at least one stock is in portfolio.ini
+    if list(stocks_config.keys()) == ["DEFAULT"]:
+        print(
+            "portfolio.ini has no stocks added or does not exist. There is nothing to show."
+        )
+        return
+    # and that the two required keys for each stock exist
+    for key in list(stocks_config.keys()):
+        if key == "DEFAULT":
+            continue
+        if "owned" not in list(stocks_config[key].keys()) and "bought_at" not in list(
+            stocks_config[key].keys()
+        ):
+            print(
+                "The stock '"
+                + key
+                + "' is missing a required section."
+                / 'Each stock in the portfolio must have an "owned" and a "bought_at" attribute.'
+            )
+
+    auto_colors = [
+        "#FF0000",
+        "#00FF00",
+        "#0000FF",
+        "#FFFF00",
+        "#FF00FF",
+        "#00FFFF",
+        "#000000",
+        "#800000",
+        "#008000",
+        "#000080",
+        "#808000",
+        "#800080",
+        "#008080",
+        "#808080",
+        "#C00000",
+        "#00C000",
+        "#0000C0",
+        "#C0C000",
+        "#C000C0",
+        "#00C0C0",
+        "#C0C0C0",
+        "#400000",
+        "#004000",
+        "#000040",
+        "#404000",
+        "#400040",
+        "#004040",
+        "#404040",
+        "#200000",
+        "#002000",
+        "#000020",
+        "#202000",
+        "#200020",
+        "#002020",
+        "#202020",
+        "#600000",
+        "#006000",
+        "#000060",
+        "#606000",
+        "#600060",
+        "#006060",
+        "#606060",
+        "#A00000",
+        "#00A000",
+        "#0000A0",
+        "#A0A000",
+        "#A000A0",
+        "#00A0A0",
+        "#A0A0A0",
+        "#E00000",
+        "#00E000",
+        "#0000E0",
+        "#E0E000",
+        "#E000E0",
+        "#00E0E0",
+        "#E0E0E0",
+    ]
+
+    for stock in stocks_config.sections():
         new_stock = Stock(stock)
 
         # get the stock data
-        with contextlib.redirect_stdout(io.StringIO()): # this suppress output (library doesn't have a silent mode?)
+        with contextlib.redirect_stdout(
+            io.StringIO()
+        ):  # this suppress output (library doesn't have a silent mode?)
             data = market.download(tickers=stock, period="1d", interval="1m")
 
         # just get the value at each minute
@@ -44,19 +132,19 @@ def main():
         new_stock.data = data
 
         # save the current stock value
-        new_stock.value = data[-1] 
+        new_stock.value = data[-1]
 
         # are we graphing this stock?
-        if "graph" in stocks_config[stock].keys():
+        if "graph" in list(stocks_config[stock].keys()):
             if stocks_config[stock]["graph"] == "True":
                 new_stock.graph = True
-       
-        if "owned" in stocks_config[stock].keys():
+
+        if "owned" in list(stocks_config[stock].keys()):
             count = float(stocks_config[stock]["owned"])
         else:
             count = 0
 
-        if "bought_at" in stocks_config[stock].keys():
+        if "bought_at" in list(stocks_config[stock].keys()):
             bought_at = float(stocks_config[stock]["bought_at"])
         else:
             bought_at = None
@@ -65,16 +153,33 @@ def main():
         portfolio.add_stock(new_stock, count, bought_at)
 
     # create the graph objects, the number is dependant on if independent graphing is on or not
-    if config["kwargs"]["independent_graphs"] == "False":
+    if config["General"]["independent_graphs"] == "False":
         graphing_list = []
         for stock in portfolio.get_stocks():
             if stock.graph:
                 graphing_list.append(stock)
-        graphs.append(Graph(graphing_list, int(config["frame"]["width"]), int(config["frame"]["height"]), auto_colors[:len(graphing_list)]))
+        if len(graphing_list) > 0:
+            graphs.append(
+                Graph(
+                    graphing_list,
+                    int(config["Frame"]["width"]),
+                    int(config["Frame"]["height"]),
+                    auto_colors[: len(graphing_list)],
+                    timezone=config["General"]["timezone"],
+                )
+            )
     else:
         for i, stock in enumerate(portfolio.get_stocks()):
             if stock.graph:
-                graphs.append(Graph([stock], int(config["frame"]["width"]), int(config["frame"]["height"]), [auto_colors[i]]))
+                graphs.append(
+                    Graph(
+                        [stock],
+                        int(config["Frame"]["width"]),
+                        int(config["Frame"]["height"]),
+                        [auto_colors[i]],
+                        timezone=config["General"]["timezone"],
+                    )
+                )
 
     # generate and print the graphs
     for graph in graphs:
@@ -88,43 +193,11 @@ def main():
 
 class Singleton(type):
     _instances = {}
+
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
-
-
-class Configuration:
-    def __init__(self, config_filepath: str, *args, **kwargs):
-        self.config_filepath = config_filepath
-        self.config = self.parse_config()
-        return
-
-    def __iter__(self):
-        return iter(self.config.keys())  # just like a dictionary would do
-
-    def __getitem__(self, key):
-        return self.config[key]
-
-    def parse_config(self) -> (dict, None):
-        config = {}
-        last_key = ""
-
-        # grab all the config lines
-        with open(self.config_filepath, "r") as config_file:
-            filedata = config_file.read().splitlines()
-
-        for line in filedata:
-            # if the line is not indented
-            if line[0] != " " and line[0] != "\t":
-                config[line.replace(":", "")] = {}
-                last_key = line.replace(":", "")
-            # otherwise, it's a subkey
-            else:
-                pair = line.split(":")
-                config[last_key][pair[0].strip()] = pair[1].strip()
-
-        return config
 
 
 class Stock:
@@ -132,7 +205,7 @@ class Stock:
         self.symbol = symbol
         self.value = 0
         self.data = []
-        self.graph = False # are we going to be graphing this stock?
+        self.graph = False  # are we going to be graphing this stock?
         return
 
     def calc_value(self, stocks_count):
@@ -147,8 +220,17 @@ class Stock:
     def get_data(self):
         return self.data
 
-    def __repr__(self):
-        print("Stock:", self.symbol, " ", self.value, " ", len(self.data), " ", self.graph)
+    def __str__(self):
+        return (
+            "Stock:"
+            + str(self.symbol)
+            + " "
+            + str(self.value)
+            + " "
+            + str(len(self.data))
+            + " "
+            + str(self.graph)
+        )
 
 
 class Portfolio(metaclass=Singleton):
@@ -161,7 +243,10 @@ class Portfolio(metaclass=Singleton):
     def add_stock(self, stock: Stock, count, value):
         self.stocks.append(stock)
         self.stocks_metadata[stock.symbol] = [float(count), float(value)]
-        self.initial_value += self.stocks_metadata[stock.symbol][0] * self.stocks_metadata[stock.symbol][1]
+        self.initial_value += (
+            self.stocks_metadata[stock.symbol][0]
+            * self.stocks_metadata[stock.symbol][1]
+        )
         return
 
     def get_stocks(self):
@@ -172,7 +257,7 @@ class Portfolio(metaclass=Singleton):
             if stock.symbol == symbol:
                 return stock
         return None
-    
+
     def print_table(self, config):
         # table format:
         #   ticker    owned   last    change  change% low high    avg
@@ -181,37 +266,84 @@ class Portfolio(metaclass=Singleton):
         #   True = green
         #   False = red
         # additional things to print: portfolio total value, portfolio change (and change %)
-        mode = config["kwargs"]["rounding_mode"]
+        mode = config["General"]["rounding_mode"]
         cell_width = 11  # buffer space between columns
-        table = [["Ticker", "Last", "Change", "Change%", "Low", "High", "Avg", "Owned", "Aggregate Value", None]]
-        table.append(["-" * cell_width for _ in range(len(table[0]))])  # this is the solid line under the header
+        table = [
+            [
+                "Ticker",
+                "Last",
+                "Change",
+                "Change%",
+                "Low",
+                "High",
+                "Avg",
+                "Owned",
+                "Aggregate Value",
+                None,
+            ]
+        ]
+        table.append(
+            ["-" * cell_width for _ in range(len(table[0]))]
+        )  # this is the solid line under the header
         table[-1].append(None)  # make sure that solid line is not colored
         self.current_value = 0
         self.opening_value = 0
         for stock in self.stocks:
             line = []
-            change_d = utils.round_value(stock.get_curr() - stock.get_open(), mode, 2)  # change
-            change_p = utils.round_value((stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, mode, 2)  # change %
+            change_d = utils.round_value(
+                stock.get_curr() - stock.get_open(), mode, 2
+            )  # change
+            change_p = utils.round_value(
+                (stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, mode, 2
+            )  # change %
             line.append(stock.symbol)  # symbol
-            line.append("$" + str(utils.round_value(stock.get_curr(), mode, 2)))  # current value
+            line.append(
+                "$" + str(utils.round_value(stock.get_curr(), mode, 2))
+            )  # current value
             if change_d >= 0:  # insert the changes into the array
                 line.append("+$" + str(change_d))
                 line.append("+" + str(change_p) + "%")
             else:
-                line.append("-$" + str(change_d)[1:])  # string stripping here is to remove the native '-' sign
-                line.append("-" + str(change_p)[1:]+ "%")
-            line.append("$" + str(utils.round_value(min(stock.get_data()), mode, 2)))  # low
-            line.append("$" + str(utils.round_value(max(stock.get_data()), mode, 2)))  # high
-            line.append("$" + str(utils.round_value(sum(stock.get_data()) / len(stock.get_data()), mode, 2)))  # avg
-            line.append(str(round(self.stocks_metadata[stock.symbol][0], 3)))  # number of stocks owned
-            line.append("$" + str(utils.round_value(stock.calc_value(self.stocks_metadata[stock.symbol][0]), mode, 2)))
-            line.append(True if change_d >=0 else False)
+                line.append(
+                    "-$" + str(change_d)[1:]
+                )  # string stripping here is to remove the native '-' sign
+                line.append("-" + str(change_p)[1:] + "%")
+            line.append(
+                "$" + str(utils.round_value(min(stock.get_data()), mode, 2))
+            )  # low
+            line.append(
+                "$" + str(utils.round_value(max(stock.get_data()), mode, 2))
+            )  # high
+            line.append(
+                "$"
+                + str(
+                    utils.round_value(
+                        sum(stock.get_data()) / len(stock.get_data()), mode, 2
+                    )
+                )
+            )  # avg
+            line.append(
+                str(round(self.stocks_metadata[stock.symbol][0], 3))
+            )  # number of stocks owned
+            line.append(
+                "$"
+                + str(
+                    utils.round_value(
+                        stock.calc_value(self.stocks_metadata[stock.symbol][0]), mode, 2
+                    )
+                )
+            )
+            line.append(True if change_d >= 0 else False)
             table.append(line)
 
             # just add in the total value seeing as we're iterating stocks anyways
-            self.current_value += stock.calc_value(self.stocks_metadata[stock.symbol][0])
+            self.current_value += stock.calc_value(
+                self.stocks_metadata[stock.symbol][0]
+            )
             # and the opening value of all the tracked stocks
-            self.opening_value += stock.get_open() * self.stocks_metadata[stock.symbol][0]
+            self.opening_value += (
+                stock.get_open() * self.stocks_metadata[stock.symbol][0]
+            )
 
         print("\nPortfolio Summary:\n")
         format_str = "{:" + str(cell_width) + "}"
@@ -222,34 +354,90 @@ class Portfolio(metaclass=Singleton):
                 print(Fore.GREEN, end="")
             else:
                 print(Fore.RED, end="")
-            print('\t' + ''.join([format_str.format(item) for item in line[:-1]]))
-            print(Style.RESET_ALL, end="") 
-        print("\n" + "{:25}".format("Total Value: ") + format_str.format("$" + str(round(self.current_value, 2))))
+            print("\t" + "".join([format_str.format(item) for item in line[:-1]]))
+            print(Style.RESET_ALL, end="")
+        print(
+            "\n"
+            + "{:25}".format("Total Value: ")
+            + format_str.format("$" + str(round(self.current_value, 2)))
+        )
         value_gained_day = self.current_value - self.opening_value
         if value_gained_day >= 0:
             print("{:25}".format("Value Gained Today: "), end="")
             print(Fore.GREEN, end="")
-            print(format_str.format("+$" + str(utils.round_value(value_gained_day, mode, 2))) + format_str.format("+" + str(utils.round_value(value_gained_day / self.current_value * 100, mode, 2)) + "%"))
+            print(
+                format_str.format(
+                    "+$" + str(utils.round_value(value_gained_day, mode, 2))
+                )
+                + format_str.format(
+                    "+"
+                    + str(
+                        utils.round_value(
+                            value_gained_day / self.current_value * 100, mode, 2
+                        )
+                    )
+                    + "%"
+                )
+            )
         else:
             print("{:25}".format("Value Gained Today: "), end="")
             print(Fore.RED, end="")
-            print(format_str.format("-$" + str(utils.round_value(value_gained_day, mode, 2))[1:]) + format_str.format(str(utils.round_value(value_gained_day / self.current_value * 100, mode, 2)) + "%"))
+            print(
+                format_str.format(
+                    "-$" + str(utils.round_value(value_gained_day, mode, 2))[1:]
+                )
+                + format_str.format(
+                    str(
+                        utils.round_value(
+                            value_gained_day / self.current_value * 100, mode, 2
+                        )
+                    )
+                    + "%"
+                )
+            )
         print(Style.RESET_ALL, end="")
 
         value_gained_all = self.current_value - self.initial_value
         if value_gained_all >= 0:
-            print("{:25}".format("Value Gained Overall: "), end="") 
+            print("{:25}".format("Value Gained Overall: "), end="")
             print(Fore.GREEN, end="")
-            print(format_str.format("+$" + str(utils.round_value(value_gained_all, mode, 2))) + format_str.format("+" + str(utils.round_value(value_gained_all / self.current_value * 100, mode, 2)) + "%"))
+            print(
+                format_str.format(
+                    "+$" + str(utils.round_value(value_gained_all, mode, 2))
+                )
+                + format_str.format(
+                    "+"
+                    + str(
+                        utils.round_value(
+                            value_gained_all / self.current_value * 100, mode, 2
+                        )
+                    )
+                    + "%"
+                )
+            )
         else:
-            print("{:25}".format("Value Gained Overall: "), end="") 
+            print("{:25}".format("Value Gained Overall: "), end="")
             print(Fore.RED, end="")
-            print(format_str.format("-$" + str(utils.round_value(value_gained_all, mode, 2))[1:]) + format_str.format(str(utils.round_value(value_gained_all / self.current_value * 100, mode, 2)) + "%"))
+            print(
+                format_str.format(
+                    "-$" + str(utils.round_value(value_gained_all, mode, 2))[1:]
+                )
+                + format_str.format(
+                    str(
+                        utils.round_value(
+                            value_gained_all / self.current_value * 100, mode, 2
+                        )
+                    )
+                    + "%"
+                )
+            )
         print(Style.RESET_ALL, end="")
 
 
 class Graph:
-    def __init__(self, stocks: list, width: int, height: int, colors: list, *args, **kwargs):
+    def __init__(
+        self, stocks: list, width: int, height: int, colors: list, *args, **kwargs
+    ):
         self.stocks = stocks
         self.graph = ""
         self.colors = colors
@@ -258,8 +446,8 @@ class Graph:
         self.plot.width = width
         self.plot.height = height
         self.plot.color_mode = "rgb"
-        self.plot.X_label="Time"
-        self.plot.Y_label="Value"
+        self.plot.X_label = "Time"
+        self.plot.Y_label = "Value"
 
         if "timezone" in kwargs.keys():
             self.timezone = pytz.timezone(kwargs["timezone"])
@@ -267,14 +455,28 @@ class Graph:
             self.timezone = pytz.utc
 
         if "starttime" in kwargs.keys():
-            self.start = kwargs["startend"].replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            self.start = (
+                kwargs["startend"].replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            )
         else:
-            self.start = datetime.now().replace(hour=14, minute=30, second=0).replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            self.start = (
+                datetime.now()
+                .replace(hour=14, minute=30, second=0)
+                .replace(tzinfo=pytz.utc)
+                .astimezone(self.timezone)
+            )
 
         if "endtime" in kwargs.keys():
-            self.end = kwargs["endtime"].replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            self.end = (
+                kwargs["endtime"].replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            )
         else:
-            self.end = datetime.now().replace(hour=21, minute=0, second=0).replace(tzinfo=pytz.utc).astimezone(self.timezone)
+            self.end = (
+                datetime.now()
+                .replace(hour=21, minute=0, second=0)
+                .replace(tzinfo=pytz.utc)
+                .astimezone(self.timezone)
+            )
 
         self.plot.set_x_limits(min_=self.start, max_=self.end)
 
@@ -290,16 +492,20 @@ class Graph:
     def gen_graph(self):
         self.y_min, self.y_max = self.find_y_range()
         self.plot.set_y_limits(min_=self.y_min, max_=self.y_max)
-    
+
         for i, stock in enumerate(self.stocks):
-            self.plot.plot([self.start + timedelta(minutes=i) for i in range(len(stock.data))], stock.data,
-                      lc=webcolors.hex_to_rgb(self.colors[i]), label=stock.symbol)
+            self.plot.plot(
+                [self.start + timedelta(minutes=i) for i in range(len(stock.data))],
+                stock.data,
+                lc=webcolors.hex_to_rgb(self.colors[i]),
+                label=stock.symbol,
+            )
 
         self.graph = self.plot.show(legend=True)
         return
 
     def find_y_range(self):
-        y_min = 10000000000000 # Arbitrarily large number (bigger than any single stock should ever be worth)
+        y_min = 10000000000000  # Arbitrarily large number (bigger than any single stock should ever be worth)
         y_max = 0
 
         for stock in self.stocks:
@@ -313,4 +519,3 @@ class Graph:
 
 if __name__ == "__main__":
     main()
-
