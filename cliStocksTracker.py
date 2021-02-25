@@ -149,7 +149,7 @@ def main():
         graph.gen_graph()
         graph.draw()
 
-    portfolio.print_table(config, rounding_mode)
+    portfolio.print_table(rounding_mode)
 
     return
 
