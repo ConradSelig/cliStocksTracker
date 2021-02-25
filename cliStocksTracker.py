@@ -110,45 +110,13 @@ def main():
         # finally, add the stock to the portfolio
         portfolio.add_stock(new_stock, count, bought_at)
 
-    # TODO: refactor suggestion: could turn this into a function/method too...
-    # something like create_graphs() or portfolio.create_graphs()
-    # create the graph objects, the number is dependant on if independent graphing is on or not
-    if (
-        config["General"]["independent_graphs"] == "False"
-        or not args.independent_graphs
-    ):
-        graphing_list = []
-        for stock in portfolio.get_stocks():
-            if stock.graph:
-                graphing_list.append(stock)
-        if len(graphing_list) > 0:
-            graphs.append(
-                Graph(
-                    graphing_list,
-                    graph_width,
-                    graph_height,
-                    autocolors.color_list[: len(graphing_list)],
-                    timezone=cfg_timezone,
-                )
-            )
-    else:
-        for i, stock in enumerate(portfolio.get_stocks()):
-            if stock.graph:
-                graphs.append(
-                    Graph(
-                        [stock],
-                        graph_width,
-                        graph_height,
-                        [autocolors.color_list[i]],
-                        timezone=cfg_timezone,
-                    )
-                )
-
-    # generate and print the graphs
-    for graph in graphs:
-        graph.gen_graph()
-        graph.draw()
-
+    portfolio.gen_graphs(
+        bool(config["General"]["independent_graphs"]) or args.independent_graphs,
+        graph_width,
+        graph_height,
+        cfg_timezone,
+    )
+    portfolio.print_graphs()
     portfolio.print_table(rounding_mode)
 
     return
@@ -330,6 +298,45 @@ class Portfolio(metaclass=Singleton):
             if stock.symbol == symbol:
                 return stock
         return None
+
+    def gen_graphs(self, independent_graph, graph_width, graph_height, cfg_timezone):
+        graphs = []
+        if independent_graph:
+            graphing_list = []
+            for stock in self.get_stocks():
+                if stock.graph:
+                    graphing_list.append(stock)
+            if len(graphing_list) > 0:
+                graphs.append(
+                    Graph(
+                        graphing_list,
+                        graph_width,
+                        graph_height,
+                        autocolors.color_list[: len(graphing_list)],
+                        timezone=cfg_timezone,
+                    )
+                )
+        else:
+            for i, stock in enumerate(self.get_stocks()):
+                if stock.graph:
+                    graphs.append(
+                        Graph(
+                            [stock],
+                            graph_width,
+                            graph_height,
+                            [autocolors.color_list[i]],
+                            timezone=cfg_timezone,
+                        )
+                    )
+        for graph in graphs:
+            graph.gen_graph()
+        self.graphs = graphs
+        return
+
+    def print_graphs(self):
+        for graph in self.graphs:
+            graph.draw()
+        return
 
     def print_table(self, mode):
         # table format:
