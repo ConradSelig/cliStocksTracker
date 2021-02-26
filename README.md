@@ -34,17 +34,16 @@ usage: cliStocksTracker.py [-h] [--width WIDTH] [--height HEIGHT]
                            [--independent-graphs] [--timezone TIMEZONE]
                            [-r ROUNDING_MODE] [-ti TIME_INTERVAL]
                            [-tp TIME_PERIOD] [--config CONFIG]
-                           [--portfolio-config PORTFOLIO_CONFIG]
-                           [--generate-config]
+                           [--portfolio-config PORTFOLIO_CONFIG] [-g]
 
 Options for cliStockTracker.py
 
 optional arguments:
   -h, --help            show this help message and exit
-  --width WIDTH         integer for the width of the chart
-  --height HEIGHT       integer the height of the chart
+  --width WIDTH         integer for the width of the chart (default is 80)
+  --height HEIGHT       integer for the height of the chart (default is 20)
   --independent-graphs  show a chart for each stock
-  --timezone TIMEZONE   your timezone (ex: America/New_York
+  --timezone TIMEZONE   your timezone (ex: America/New_York)
   -r ROUNDING_MODE, --rounding-mode ROUNDING_MODE
                         how should numbers be rounded (math | down)
   -ti TIME_INTERVAL, --time-interval TIME_INTERVAL
@@ -54,7 +53,8 @@ optional arguments:
   --config CONFIG       path to a config.ini file
   --portfolio-config PORTFOLIO_CONFIG
                         path to a portfolio.ini file with your list of stonks
-  --generate-config     generates example config files
+  -g, --generate-config
+                        generates example config files
 ```
 
 Do note that any given command line argument will override settings from the config file.
