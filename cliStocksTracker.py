@@ -62,53 +62,7 @@ def main():
     if args.height:
         graph_height = args.graph_height
 
-    # TODO: refactor suggestion: turn this loop a function like populate_portfolio() or a
-    # method for the Portfolio class like portfolio.populate()
-    for stock in stocks_config.sections():
-        new_stock = Stock(stock)
-
-        # get graph time interval and period
-        time_period = "1d"
-        time_interval = "1m"
-        if args.time_period:
-            time_period = args.time_period
-        if args.time_interval:
-            time_interval = args.time_interval
-
-        # get the stock data
-        with contextlib.redirect_stdout(
-            io.StringIO()
-        ):  # this suppress output (library doesn't have a silent mode?)
-            data = market.download(
-                tickers=stock, period=time_period, interval=time_interval
-            )
-
-        # just get the value at each minute
-        data = data[["Open"]].to_numpy()
-        data = [_[0] for _ in data]
-        # and save that parsed data
-        new_stock.data = data
-
-        # save the current stock value
-        new_stock.value = data[-1]
-
-        # are we graphing this stock?
-        if "graph" in list(stocks_config[stock].keys()):
-            if stocks_config[stock]["graph"] == "True":
-                new_stock.graph = True
-
-        if "owned" in list(stocks_config[stock].keys()):
-            count = float(stocks_config[stock]["owned"])
-        else:
-            count = 0
-
-        if "bought_at" in list(stocks_config[stock].keys()):
-            bought_at = float(stocks_config[stock]["bought_at"])
-        else:
-            bought_at = None
-
-        # finally, add the stock to the portfolio
-        portfolio.add_stock(new_stock, count, bought_at)
+    portfolio.populate(stocks_config, args)
 
     portfolio.gen_graphs(
         bool(config["General"]["independent_graphs"]) or args.independent_graphs,
@@ -298,6 +252,53 @@ class Portfolio(metaclass=Singleton):
             if stock.symbol == symbol:
                 return stock
         return None
+
+    def populate(self, stocks_config, args):
+        for stock in stocks_config.sections():
+            new_stock = Stock(stock)
+
+            # get graph time interval and period
+            time_period = "1d"
+            time_interval = "1m"
+            if args.time_period:
+                time_period = args.time_period
+            if args.time_interval:
+                time_interval = args.time_interval
+
+            # get the stock data
+            with contextlib.redirect_stdout(
+                io.StringIO()
+            ):  # this suppress output (library doesn't have a silent mode?)
+                data = market.download(
+                    tickers=stock, period=time_period, interval=time_interval
+                )
+
+            # just get the value at each minute
+            data = data[["Open"]].to_numpy()
+            data = [_[0] for _ in data]
+            # and save that parsed data
+            new_stock.data = data
+
+            # save the current stock value
+            new_stock.value = data[-1]
+
+            # are we graphing this stock?
+            if "graph" in list(stocks_config[stock].keys()):
+                if stocks_config[stock]["graph"] == "True":
+                    new_stock.graph = True
+
+            if "owned" in list(stocks_config[stock].keys()):
+                count = float(stocks_config[stock]["owned"])
+            else:
+                count = 0
+
+            if "bought_at" in list(stocks_config[stock].keys()):
+                bought_at = float(stocks_config[stock]["bought_at"])
+            else:
+                bought_at = None
+
+            # finally, add the stock to the portfolio
+            self.add_stock(new_stock, count, bought_at)
 
     def gen_graphs(self, independent_graph, graph_width, graph_height, cfg_timezone):
         graphs = []
