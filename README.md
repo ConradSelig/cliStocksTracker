@@ -106,3 +106,14 @@ There is currently no support for stocks of the same label being bought at diffe
 There is currently no support for custom selection of symbol colors within a graph (planned).
 
 **"owned" and "bought_at" are required keys, all others optional."**
+
+
+## Similar projects
+
+- [DidierRLopes/GameStonkTerminal](https://github.com/DidierRLopes/GamestonkTerminal) - Python
+- [aranair/rtscli](https://github.com/aranair/rtscli) - Python
+---
+- [mop-tracker/mop](https://github.com/mop-tracker/mop) - Go
+- [achannarasappa/ticker](https://github.com/achannarasappa/ticker) - Go
+---
+- [tarkah/tickrs](https://github.com/tarkah/tickrs) - Rust
