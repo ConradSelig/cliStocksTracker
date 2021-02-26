@@ -300,9 +300,9 @@ class Portfolio(metaclass=Singleton):
             # finally, add the stock to the portfolio
             self.add_stock(new_stock, count, bought_at)
 
-    def gen_graphs(self, independent_graph, graph_width, graph_height, cfg_timezone):
+    def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []
-        if independent_graph:
+        if not independent_graphs:
             graphing_list = []
             for stock in self.get_stocks():
                 if stock.graph:
