@@ -78,8 +78,12 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Options for cliStockTracker.py")
-    parser.add_argument("--width", type=int, help="integer for the width of the chart")
-    parser.add_argument("--height", type=int, help="integer the height of the chart")
+    parser.add_argument(
+        "--width", type=int, help="integer for the width of the chart (default is 80)"
+    )
+    parser.add_argument(
+        "--height", type=int, help="integer for the height of the chart (default is 20)"
+    )
     parser.add_argument(
         "--independent-graphs",
         action="store_true",
@@ -89,7 +93,7 @@ def parse_args():
         "--timezone",
         type=str,
         default="America/New_York",
-        help="your timezone (ex: America/New_York",
+        help="your timezone (ex: America/New_York)",
     )
     parser.add_argument(
         "-r",
@@ -120,7 +124,10 @@ def parse_args():
         help="path to a portfolio.ini file with your list of stonks",
     )
     parser.add_argument(
-        "--generate-config", action="store_true", help="generates example config files"
+        "-g",
+        "--generate-config",
+        action="store_true",
+        help="generates example config files",
     )
     args = parser.parse_args()
     return args
