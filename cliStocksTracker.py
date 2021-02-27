@@ -65,7 +65,7 @@ def main():
     portfolio.populate(stocks_config, args)
 
     portfolio.gen_graphs(
-        bool(config["General"]["independent_graphs"]) or args.independent_graphs,
+        config["General"]["independent_graphs"] == "True" or args.independent_graphs,
         graph_width,
         graph_height,
         cfg_timezone,
