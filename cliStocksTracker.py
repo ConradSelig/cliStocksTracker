@@ -2,7 +2,9 @@ import io
 import pytz
 import utils
 import plotille
+import warnings
 import webcolors
+import autocolors
 import contextlib
 import configparser
 import argparse
@@ -14,8 +16,6 @@ from matplotlib import colors
 from colorama import Fore, Style
 from datetime import datetime, timedelta
 
-import autocolors
-import warnings
 
 def main():
     config = configparser.ConfigParser()
@@ -263,32 +263,13 @@ class Portfolio(metaclass=Singleton):
             if stock.symbol == symbol:
                 return stock
         return None
-    
+
     def get_color_list(self):
         for stock in self.stocks:
             self.color_list.append(stock.color)
-        
+
     def populate(self, stocks_config, args):
-        word_color_list = ['aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 
-                           'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse', 
-                           'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
-                           'darkgoldenrod', 'darkgray', 'darkgrey', 'darkgreen', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 
-                           'darkorange', 'darkorchid', 'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 
-                           'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 
-                           'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 
-                           'goldenrod', 'gray', 'grey', 'green', 'greenyellow', 
-                           'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 
-                           'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 
-                           'lightgray', 'lightgrey', 'lightgreen', 'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue',
-                           'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen',
-                           'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen',
-                           'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream',
-                           'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered',
-                           'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff',
-                           'peru', 'pink', 'plum', 'powderblue', 'purple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon',
-                           'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray',
-                           'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet',
-                           'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen']
+
         for stock in stocks_config.sections():
             new_stock = Stock(stock)
 
@@ -331,27 +312,33 @@ class Portfolio(metaclass=Singleton):
                 bought_at = float(stocks_config[stock]["bought_at"])
             else:
                 bought_at = None
-            #Check the stock color for graphing
+            # Check the stock color for graphing
             if "color" in list(stocks_config[stock].keys()):
                 color = str(stocks_config[stock]["color"])
             else:
                 color = None
-            
-            #Check that the stock color that was entered is legal
+
+            # Check that the stock color that was entered is legal
             colorWarningFlag = True
             if color == None:
-                colorWarningFlag = False 
+                colorWarningFlag = False
             elif type(color) == str:
-                if (color.startswith("#")) or (color in word_color_list):
-                    colorWarningFlag = False                    
-            
+                if (color.startswith("#")) or (
+                    color in webcolors.CSS3_NAMES_TO_HEX.keys()
+                ):
+                    colorWarningFlag = False
+
             if colorWarningFlag:
-                warnings.warn("The color selected for " + stock + " is not in not in the approved list. Automatic color selection will be used.")
+                warnings.warn(
+                    "The color selected for "
+                    + stock
+                    + " is not in not in the approved list. Automatic color selection will be used."
+                )
                 color = None
-                
+
             # finally, add the stock to the portfolio
             self.add_stock(new_stock, count, bought_at, color)
-            
+
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []
         if not independent_graphs:
@@ -622,7 +609,7 @@ class Graph:
         print(self.graph)
         return
 
-    def gen_graph(self,auto_colors):
+    def gen_graph(self, auto_colors):
         self.y_min, self.y_max = self.find_y_range()
         self.plot.set_y_limits(min_=self.y_min, max_=self.y_max)
 
@@ -631,14 +618,16 @@ class Graph:
                 color = webcolors.hex_to_rgb(auto_colors[i % 67])
             elif self.colors[i].startswith("#"):
                 color = webcolors.hex_to_rgb(self.colors[i])
-                
+
             else:
-                color = webcolors.CSS3_NAMES_TO_HEX[self.colors[i]]
-            
+                color = webcolors.hex_to_rgb(
+                    webcolors.CSS3_NAMES_TO_HEX[self.colors[i]]
+                )
+
             self.plot.plot(
                 [self.start + timedelta(minutes=i) for i in range(len(stock.data))],
                 stock.data,
-                lc = color,
+                lc=color,
                 label=stock.symbol,
             )
 
