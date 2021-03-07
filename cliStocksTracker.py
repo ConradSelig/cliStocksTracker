@@ -2,7 +2,9 @@ import io
 import pytz
 import utils
 import plotille
+import warnings
 import webcolors
+import autocolors
 import contextlib
 import configparser
 import argparse
@@ -13,8 +15,6 @@ import yfinance as market
 from matplotlib import colors
 from colorama import Fore, Style
 from datetime import datetime, timedelta
-
-import autocolors
 
 
 def main():
@@ -150,6 +150,7 @@ rounding_mode=math
 graph=True
 owned=10
 bought_at=100
+color=#FFFF00
 """
 
     with open(config_path, "w") as config_file:
@@ -208,6 +209,7 @@ class Stock:
         self.value = 0
         self.data = []
         self.graph = False  # are we going to be graphing this stock?
+        self.color = None
         return
 
     def calc_value(self, stocks_count):
@@ -240,15 +242,17 @@ class Portfolio(metaclass=Singleton):
         self.stocks = []
         self.stocks_metadata = {}
         self.initial_value = 0
+        self.color_list = []
         return
 
-    def add_stock(self, stock: Stock, count, value):
+    def add_stock(self, stock: Stock, count, value, color):
         self.stocks.append(stock)
         self.stocks_metadata[stock.symbol] = [float(count), float(value)]
         self.initial_value += (
             self.stocks_metadata[stock.symbol][0]
             * self.stocks_metadata[stock.symbol][1]
         )
+        self.color_list.append(color)
         return
 
     def get_stocks(self):
@@ -260,7 +264,12 @@ class Portfolio(metaclass=Singleton):
                 return stock
         return None
 
+    def get_color_list(self):
+        for stock in self.stocks:
+            self.color_list.append(stock.color)
+
     def populate(self, stocks_config, args):
+
         for stock in stocks_config.sections():
             new_stock = Stock(stock)
 
@@ -303,9 +312,32 @@ class Portfolio(metaclass=Singleton):
                 bought_at = float(stocks_config[stock]["bought_at"])
             else:
                 bought_at = None
+            # Check the stock color for graphing
+            if "color" in list(stocks_config[stock].keys()):
+                color = str(stocks_config[stock]["color"])
+            else:
+                color = None
+
+            # Check that the stock color that was entered is legal
+            colorWarningFlag = True
+            if color == None:
+                colorWarningFlag = False
+            elif type(color) == str:
+                if (color.startswith("#")) or (
+                    color in webcolors.CSS3_NAMES_TO_HEX.keys()
+                ):
+                    colorWarningFlag = False
+
+            if colorWarningFlag:
+                warnings.warn(
+                    "The color selected for "
+                    + stock
+                    + " is not in not in the approved list. Automatic color selection will be used."
+                )
+                color = None
 
             # finally, add the stock to the portfolio
-            self.add_stock(new_stock, count, bought_at)
+            self.add_stock(new_stock, count, bought_at, color)
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []
@@ -320,7 +352,7 @@ class Portfolio(metaclass=Singleton):
                         graphing_list,
                         graph_width,
                         graph_height,
-                        autocolors.color_list[: len(graphing_list)],
+                        self.color_list[: len(graphing_list)],
                         timezone=cfg_timezone,
                     )
                 )
@@ -332,12 +364,12 @@ class Portfolio(metaclass=Singleton):
                             [stock],
                             graph_width,
                             graph_height,
-                            [autocolors.color_list[i]],
+                            [self.color_list[i]],
                             timezone=cfg_timezone,
                         )
                     )
         for graph in graphs:
-            graph.gen_graph()
+            graph.gen_graph(autocolors.color_list)
         self.graphs = graphs
         return
 
@@ -577,15 +609,25 @@ class Graph:
         print(self.graph)
         return
 
-    def gen_graph(self):
+    def gen_graph(self, auto_colors):
         self.y_min, self.y_max = self.find_y_range()
         self.plot.set_y_limits(min_=self.y_min, max_=self.y_max)
 
         for i, stock in enumerate(self.stocks):
+            if self.colors[i] == None:
+                color = webcolors.hex_to_rgb(auto_colors[i % 67])
+            elif self.colors[i].startswith("#"):
+                color = webcolors.hex_to_rgb(self.colors[i])
+
+            else:
+                color = webcolors.hex_to_rgb(
+                    webcolors.CSS3_NAMES_TO_HEX[self.colors[i]]
+                )
+
             self.plot.plot(
                 [self.start + timedelta(minutes=i) for i in range(len(stock.data))],
                 stock.data,
-                lc=webcolors.hex_to_rgb(self.colors[i]),
+                lc=color,
                 label=stock.symbol,
             )
 
