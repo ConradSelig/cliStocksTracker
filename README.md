@@ -20,6 +20,7 @@ Requirements:
   * pytz >= 2021.1
   * colorama >= 0.4.4
   * webcolors==1.11.1
+  * matplotlib>=3.3.4
   
 ### Manual
 ```
