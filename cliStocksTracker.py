@@ -411,19 +411,19 @@ class Portfolio(metaclass=Singleton):
             graph.draw()
         return
 
-    def print_value(self, format_str, gain, timespan, mode):
-        positive_day_gain = gain >= 0
-        day_gain_symbol = "+" if positive_day_gain else "-"
-        day_gain_verboge = "Gained" if positive_day_gain else "Lost"
+    def print_gains(self, format_str, gain, timespan, mode):
+        positive_gain = gain >= 0
+        gain_symbol = "+" if positive_gain else "-"
+        gain_verboge = "Gained" if positive_gain else "Lost"
 
-        print("{:25}".format("Value " + day_gain_verboge + " " + timespan + ": "), end="")
-        print(Fore.GREEN if positive_day_gain else Fore.RED, end="")
+        print("{:25}".format("Value " + gain_verboge + " " + timespan + ": "), end="")
+        print(Fore.GREEN if positive_gain else Fore.RED, end="")
         print(
             format_str.format(
-                day_gain_symbol + "$" + str(abs(utils.round_value(gain, mode, 2)))
+                gain_symbol + "$" + str(abs(utils.round_value(gain, mode, 2)))
             )
             + format_str.format(
-                day_gain_symbol
+                gain_symbol
                 + str(
                     abs(utils.round_value(
                         gain / self.current_value * 100, mode, 2
@@ -433,6 +433,27 @@ class Portfolio(metaclass=Singleton):
             )
         )
         print(Style.RESET_ALL, end="")
+        return
+
+    def print_portfolio_summary(self, format_str, table):
+        for line in table:
+            if line[-1] is None:
+                pass
+            else:
+                print(Fore.GREEN if line[-1] else Fore.RED, end="")
+
+            print("\t" + "".join([format_str.format(item) for item in line[:-1]]))
+            print(Style.RESET_ALL, end="")
+
+        # print the totals line market value then cost
+        print("{:112}".format("Totals: "), end="")
+        print(Fore.GREEN if self.current_value >= self.initial_value else Fore.RED, end="")
+        print(format_str.format("$" + str(round(self.current_value, 2))), end = "")
+        print(Fore.RESET, end="")
+        print(
+            "{:13}".format("")
+            + format_str.format("$" + str(round(self.initial_value, 2)))
+        )
         return
 
     def print_table(self, mode):
@@ -546,14 +567,7 @@ class Portfolio(metaclass=Singleton):
         # generate ticker daily summary
         print("\nPortfolio Summary:\n")
         format_str = "{:" + str(cell_width) + "}"
-        for line in table:
-            if line[-1] is None:
-                pass
-            else:
-                print(Fore.GREEN if line[-1] else Fore.RED, end="")
-
-            print("\t" + "".join([format_str.format(item) for item in line[:-1]]))
-            print(Style.RESET_ALL, end="")
+        self.print_portfolio_summary(format_str, table)
 
         # generate overall stats
         print(
@@ -568,11 +582,11 @@ class Portfolio(metaclass=Singleton):
 
         # print daily value
         value_gained_day = self.current_value - self.opening_value
-        self.print_value(format_str, value_gained_day, "Today", mode)
+        self.print_gains(format_str, value_gained_day, "Today", mode)
 
         # print overall value
         value_gained_all = self.current_value - self.initial_value
-        self.print_value(format_str, value_gained_all, "Overall", mode)
+        self.print_gains(format_str, value_gained_all, "Overall", mode)
 
 
 class Graph:
