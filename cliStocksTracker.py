@@ -446,7 +446,7 @@ class Portfolio(metaclass=Singleton):
             print(Style.RESET_ALL, end="")
 
         # print the totals line market value then cost
-        print("{:112}".format("Totals: "), end="")
+        print("{:112}".format("\nTotals: "), end="")
         print(Fore.GREEN if self.current_value >= self.initial_value else Fore.RED, end="")
         print(format_str.format("$" + str(round(self.current_value, 2))), end = "")
         print(Fore.RESET, end="")
