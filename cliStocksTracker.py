@@ -315,9 +315,14 @@ class Portfolio(metaclass=Singleton):
             with contextlib.redirect_stdout(
                 io.StringIO()
             ):  # this suppress output (library doesn't have a silent mode?)
-                data = market.download(
-                    tickers=stock, period=time_period, interval=time_interval
-                )
+                try:
+                    data = market.download(
+                        tickers=stock, period=time_period, interval=time_interval
+                    )
+                except:
+                    print(
+                        'cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again.'
+                    )
 
             # just get the value at each minute
             data = data[["Open"]].to_numpy()
