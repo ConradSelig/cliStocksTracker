@@ -411,6 +411,30 @@ class Portfolio(metaclass=Singleton):
             graph.draw()
         return
 
+    def print_value(self, format_str, gain, timespan, mode):
+        positive_day_gain = gain >= 0
+        day_gain_symbol = "+" if positive_day_gain else "-"
+        day_gain_verboge = "Gained" if positive_day_gain else "Lost"
+
+        print("{:25}".format("Value " + day_gain_verboge + " " + timespan + ": "), end="")
+        print(Fore.GREEN if positive_day_gain else Fore.RED, end="")
+        print(
+            format_str.format(
+                day_gain_symbol + "$" + str(abs(utils.round_value(gain, mode, 2)))
+            )
+            + format_str.format(
+                day_gain_symbol
+                + str(
+                    abs(utils.round_value(
+                        gain / self.current_value * 100, mode, 2
+                    ))
+                )
+                + "%"
+            )
+        )
+        print(Style.RESET_ALL, end="")
+        return
+
     def print_table(self, mode):
         # table format:
         #   ticker    owned   last    change  change% low high    avg
@@ -420,7 +444,7 @@ class Portfolio(metaclass=Singleton):
         #   False = red
         # additional things to print: portfolio total value, portfolio change (and change %)
 
-        cell_width = 11  # buffer space between columns
+        cell_width = 13  # buffer space between columns
         table = [
             [
                 "Ticker",
@@ -429,14 +453,16 @@ class Portfolio(metaclass=Singleton):
                 "Change%",
                 "Low",
                 "High",
-                "Avg",
+                "Daily Avg",
                 "Owned",
-                "Aggregate Value",
+                "Mkt Value",
+                "Avg Share",
+                "Total Cost",
                 None,
             ]
         ]
         table.append(
-            ["-" * cell_width for _ in range(len(table[0]))]
+            ["-" * cell_width for _ in range(len(table[0])-1)]
         )  # this is the solid line under the header
         table[-1].append(None)  # make sure that solid line is not colored
         self.current_value = 0
@@ -478,11 +504,30 @@ class Portfolio(metaclass=Singleton):
             line.append(
                 str(round(self.stocks_metadata[stock.symbol][0], 3))
             )  # number of stocks owned
+
+            # current market value of shares
+            curr_value = stock.calc_value(self.stocks_metadata[stock.symbol][0])
             line.append(
                 "$"
                 + str(
                     utils.round_value(
-                        stock.calc_value(self.stocks_metadata[stock.symbol][0]), mode, 2
+                        curr_value, mode, 2
+                    )
+                )
+            )
+
+            # Average buy in cost
+            line.append(
+                str(round(self.stocks_metadata[stock.symbol][1], 2))
+            )
+
+            # total cost of shares
+            cost = self.stocks_metadata[stock.symbol][0] * self.stocks_metadata[stock.symbol][1]
+            line.append(
+                "$"
+                + str(
+                    utils.round_value(
+                        cost, mode, 2
                     )
                 )
             )
@@ -498,94 +543,36 @@ class Portfolio(metaclass=Singleton):
                 stock.get_open() * self.stocks_metadata[stock.symbol][0]
             )
 
+        # generate ticker daily summary
         print("\nPortfolio Summary:\n")
         format_str = "{:" + str(cell_width) + "}"
         for line in table:
             if line[-1] is None:
                 pass
-            elif line[-1]:
-                print(Fore.GREEN, end="")
             else:
-                print(Fore.RED, end="")
+                print(Fore.GREEN if line[-1] else Fore.RED, end="")
+
             print("\t" + "".join([format_str.format(item) for item in line[:-1]]))
             print(Style.RESET_ALL, end="")
+
+        # generate overall stats
         print(
             "\n"
-            + "{:25}".format("Total Value: ")
+            + "{:25}".format("Total Cost: ")
+            + format_str.format("$" + str(round(self.initial_value, 2)))
+        )
+        print(
+            "{:25}".format("Total Value: ")
             + format_str.format("$" + str(round(self.current_value, 2)))
         )
+
+        # print daily value
         value_gained_day = self.current_value - self.opening_value
-        if value_gained_day >= 0:
-            print("{:25}".format("Value Gained Today: "), end="")
-            print(Fore.GREEN, end="")
+        self.print_value(format_str, value_gained_day, "Today", mode)
 
-            print(
-                format_str.format(
-                    "+$" + str(utils.round_value(value_gained_day, mode, 2))
-                )
-                + format_str.format(
-                    "+"
-                    + str(
-                        utils.round_value(
-                            value_gained_day / self.current_value * 100, mode, 2
-                        )
-                    )
-                    + "%"
-                )
-            )
-        else:
-            print("{:25}".format("Value Gained Today: "), end="")
-            print(Fore.RED, end="")
-            print(
-                format_str.format(
-                    "-$" + str(utils.round_value(value_gained_day, mode, 2))[1:]
-                )
-                + format_str.format(
-                    str(
-                        utils.round_value(
-                            value_gained_day / self.current_value * 100, mode, 2
-                        )
-                    )
-                    + "%"
-                )
-            )
-        print(Style.RESET_ALL, end="")
-
+        # print overall value
         value_gained_all = self.current_value - self.initial_value
-        if value_gained_all >= 0:
-            print("{:25}".format("Value Gained Overall: "), end="")
-            print(Fore.GREEN, end="")
-            print(
-                format_str.format(
-                    "+$" + str(utils.round_value(value_gained_all, mode, 2))
-                )
-                + format_str.format(
-                    "+"
-                    + str(
-                        utils.round_value(
-                            value_gained_all / self.current_value * 200, mode, 2
-                        )
-                    )
-                    + "%"
-                )
-            )
-        else:
-            print("{:25}".format("Value Gained Overall: "), end="")
-            print(Fore.RED, end="")
-            print(
-                format_str.format(
-                    "-$" + str(utils.round_value(value_gained_all, mode, 2))[1:]
-                )
-                + format_str.format(
-                    str(
-                        utils.round_value(
-                            value_gained_all / self.current_value * 100, mode, 2
-                        )
-                    )
-                    + "%"
-                )
-            )
-        print(Style.RESET_ALL, end="")
+        self.print_value(format_str, value_gained_all, "Overall", mode)
 
 
 class Graph:
