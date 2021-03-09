@@ -3,11 +3,12 @@ import pytz
 import utils
 import plotille
 import warnings
+import argparse
 import webcolors
 import autocolors
 import contextlib
 import configparser
-import argparse
+import multiconfigparser
 
 import numpy as np
 import yfinance as market
@@ -18,8 +19,8 @@ from datetime import datetime, timedelta
 
 
 def main():
-    config = configparser.ConfigParser()
-    stocks_config = configparser.ConfigParser()
+    config = multiconfigparser.ConfigParserMultiOpt()
+    stocks_config = multiconfigparser.ConfigParserMultiOpt()
     args = parse_args()
 
     portfolio = Portfolio()
@@ -137,7 +138,7 @@ def gen_config_files(config_path, portfolio_path):
     example_config_str = """\
 [Frame]
 width=80
-height=20
+height=20 
 
 [General]
 independent_graphs=False
@@ -148,9 +149,18 @@ rounding_mode=math
     example_portfolio_str = """\
 [ AAPL ]
 graph=True
-owned=10
-bought_at=100
-color=#FFFF00
+buy=10@100
+buy=5@120
+sell=3@122
+sell=8@125
+color=#FFFF00 
+
+[ SPKE ]
+graph=False
+buy=1@10.28
+buy=1@10.30
+sell=1@10.32
+color=lime
 """
 
     with open(config_path, "w") as config_file:
@@ -179,19 +189,6 @@ def verify_config_keys(config, stocks_config):
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
         return
-    # and that the two required keys for each stock exist
-    for key in list(stocks_config.keys()):
-        if key == "DEFAULT":
-            continue
-        if "owned" not in list(stocks_config[key].keys()) and "bought_at" not in list(
-            stocks_config[key].keys()
-        ):
-            print(
-                "The stock '"
-                + key
-                + "' is missing a required section."
-                + 'Each stock in the portfolio must have an "owned" and a "bought_at" attribute.'
-            )
 
 
 class Singleton(type):
@@ -268,6 +265,39 @@ class Portfolio(metaclass=Singleton):
         for stock in self.stocks:
             self.color_list.append(stock.color)
 
+    def average_buyin(self, buys: list, sells: list):
+        buy_c, buy_p, sell_c, sell_p, count, bought_at = 0, 0, 0, 0, 0, 0
+        buys = [_.split("@") for _ in ([buys] if type(buys) is not tuple else buys)]
+        sells = [_.split("@") for _ in ([sells] if type(sells) is not tuple else sells)]
+
+        for buy in buys:
+            next_c = float(buy[0])
+            if next_c <= 0:
+                print(
+                    'A negative "buy" key was detected. Use the sell key instead to guarantee accurate calculations.'
+                )
+                exit()
+            buy_c += next_c
+            buy_p += float(buy[1]) * next_c
+
+        for sell in sells:
+            next_c = float(sell[0])
+            if next_c <= 0:
+                print(
+                    'A negative "sell" key was detected. Use the buy key instead to guarantee accurate calculations.'
+                )
+                exit()
+            sell_c += next_c
+            sell_p += float(sell[1]) * next_c
+
+        count = buy_c - sell_c
+        if count == 0:
+            return 0, 0
+
+        bought_at = (buy_p - sell_p) / count
+
+        return count, bought_at
+
     def populate(self, stocks_config, args):
 
         for stock in stocks_config.sections():
@@ -303,15 +333,18 @@ class Portfolio(metaclass=Singleton):
                 if stocks_config[stock]["graph"] == "True":
                     new_stock.graph = True
 
-            if "owned" in list(stocks_config[stock].keys()):
-                count = float(stocks_config[stock]["owned"])
+            if "buy" in list(stocks_config[stock].keys()):
+                buyin = stocks_config[stock]["buy"]
             else:
-                count = 0
+                buyin = ()
 
-            if "bought_at" in list(stocks_config[stock].keys()):
-                bought_at = float(stocks_config[stock]["bought_at"])
+            if "sell" in list(stocks_config[stock].keys()):
+                sellout = stocks_config[stock]["sell"]
             else:
-                bought_at = None
+                sellout = ()
+
+            count, bought_at = self.average_buyin(buyin, sellout)
+
             # Check the stock color for graphing
             if "color" in list(stocks_config[stock].keys()):
                 color = str(stocks_config[stock]["color"])
@@ -485,6 +518,7 @@ class Portfolio(metaclass=Singleton):
         if value_gained_day >= 0:
             print("{:25}".format("Value Gained Today: "), end="")
             print(Fore.GREEN, end="")
+
             print(
                 format_str.format(
                     "+$" + str(utils.round_value(value_gained_day, mode, 2))
@@ -529,7 +563,7 @@ class Portfolio(metaclass=Singleton):
                     "+"
                     + str(
                         utils.round_value(
-                            value_gained_all / self.current_value * 100, mode, 2
+                            value_gained_all / self.current_value * 200, mode, 2
                         )
                     )
                     + "%"

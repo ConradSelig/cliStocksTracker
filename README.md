@@ -3,7 +3,7 @@
 [![GitHub contributors](https://img.shields.io/github/contributors/ConradSelig/cliStocksTracker?style=for-the-badge)](https://github.com/ConradSelig/cliStocksTracker/graphs/contributors)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ConradSelig/cliStocksTracker?style=for-the-badge)](https://github.com/ConradSelig/cliStocksTracker/commits/main)
 
-A command line stock market / portfolio tracker originally insipred by [Ericm's Stonks](https://github.com/ericm/stonks) program, featuring unicode for incredibly high detailed
+A command line stock market / portfolio tracker originally inspired by [Ericm's Stonks](https://github.com/ericm/stonks) program, featuring unicode for incredibly high detailed
 graphs even in a terminal.
 
 ![image](https://user-images.githubusercontent.com/31974507/107873060-ac3af380-6e6c-11eb-8673-10fed1a16f0a.png)
@@ -87,22 +87,31 @@ A default config.ini is packaged with the project.
 ```
 [ stock symbol ]
 graph=[ True | False ]
-owned=[ float ]
-bought_at=[ float ]
+buy=[ count ]@[ price ]
+buy=10.786@14.56  # 10.786 stocks were bought at $14.56
+buy=2.3@14.68  # an additional 2.3 stocks were bought at @14.68
+sell=[ count ]@[ price ]
+sell=5.3@16.43  # 5.3 stocks were sold at $16.43
 color=[str]
 
 [ stock symbol ]
 graph=[ True | False ]
-owned=[ float ]
-bought_at=[ float ]
+buy=[ count ]@[ price ]
+sell=[ count ]@[ price ]
 color=[str]
 ...
 ```
 
+An unlimited number of 'buy' and 'sell' keys are allowed for each symbol. **Yes, duplicate keys do work. So just add another line into your portfolio every time you buy or sell a stock**,
+cliStocksTracker will take care of the weighted average to give you as accurate data as possible.
+
+*Planned feature to have cliStocksTracker automatically condense these keys down to a single line at runtime, as well as allowing buying and
+selling as command line arguments*.
+
 Each stock symbol has four additional config settings:
-1. "graph": Determines if a graph is plotted of this symbol
-2. "owned": Count of the number of stocks owned of this symbol
-3. "bought_at": Price the stocks we're originally bought at, this is used to calculate portfolio delta.
+1. "graph": Determines if a graph is plotted of this symbol.
+2. "buy": A buy order, formatted as "count at price". Duplicates of this key are allowed.
+3. "sell": A sell order, formatted as "count at price". Duplicates of this key are allowed.
 4. "color": The custom color to display the stock on the graphs. This is not a mandatory configuration setting, and if left empty automatic color selection will take place.
 
 The color can be chosen from the following list of colors:
@@ -119,10 +128,14 @@ The color can be chosen from the following list of colors:
  'powderblue', 'purple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray',
  'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
 
-There is currently no support for stocks of the same label being bought at different prices (planned).
-
-**"owned" and "bought_at" are required keys, all others optional."**
-
+All keys in the portfolio config file are optional, so this:
+```
+[GME]
+[AMC]
+[HPE]
+[AAPL]
+```
+is actually a valid portfolio.ini! (even if it shows you basically nothing...)
 
 ## Similar projects
 

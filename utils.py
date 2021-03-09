@@ -1,7 +1,9 @@
-from math import trunc
+from math import trunc, isnan
 
 # Rounds value down to the desired number of decimals digits (controlled decimal_places) using math or truncate mode
 def round_value(value, mode, decimal_places):
+    if value == 0 or isnan(value):
+        return 0
     if mode == "math":
         return round(value, decimal_places)
     elif mode == "down":
