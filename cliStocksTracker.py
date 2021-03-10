@@ -45,7 +45,6 @@ def main():
     args = parse_args()
 
     portfolio = Portfolio()
-    graphs = []
 
     # read config files
     config.read(args.config)

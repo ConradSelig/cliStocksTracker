@@ -13,6 +13,7 @@ class Renderer(metaclass=utils.Singleton):
         return
 
     def render(self):
+        print()
         for graph in self.portfolio.graphs:
             graph.draw()
 
