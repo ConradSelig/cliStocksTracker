@@ -132,7 +132,7 @@ def verify_stock_keys(stocks_config):
         print(
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
-        quit()
+        exit()  # nothing else to do! Just force exit.
 
 
 class Stock:
@@ -254,12 +254,13 @@ class Portfolio(metaclass=utils.Singleton):
         market_data = self.download_market_data(args, stocks_config.sections())
 
         # iterate through each ticker data
-        for td in market_data[["Open"]]:
+        data_key = "Open"
+        for td in market_data[[data_key]]:
             stock = td[1]
             new_stock = Stock(stock)
 
-            # convert the numpy array into a list of prices
-            data = market_data["Open"][stock].values.tolist()
+            # convert the numpy array into a list of prices while removing NaN values
+            data = market_data[data_key][stock].values[~np.isnan(market_data[data_key][stock].values)]
             new_stock.data = data
 
             # save the current stock value
@@ -412,14 +413,6 @@ class Graph:
                 color = webcolors.hex_to_rgb(
                     webcolors.CSS3_NAMES_TO_HEX[self.colors[i]]
                 )
-
-            # some ticker data returns a NaN value for certain points
-            # instead of removing them, steal your neighbors value so we can graph
-            # iterating all stock data isn't ideal but we can refactor this later
-            for q in range(len(stock.data)):
-                if math.isnan(stock.data[q]):
-                    index = q - 1 if q - 1 >= 0 else q + 1
-                    stock.data[q] = stock.data[index]
 
             self.plot.plot(
                 [self.start + timedelta(minutes=i) for i in range(len(stock.data))],
