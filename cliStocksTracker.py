@@ -21,20 +21,19 @@ from renderer import Renderer
 
 
 def merge_config(config, args):
-    if config["General"]["independent_graphs"]:
-        args.independent_graphs = config["General"]["independent_graphs"] == "True"
+    if "General" in config:
+        if "independent_graphs" in config["General"]:
+            args.independent_graphs = config["General"]["independent_graphs"] == "True"
+        if "timezone" in config["General"]:
+            args.timezone = config["General"]["timezone"]
+        if "rounding_mode" in config["General"]:
+            args.rounding_mode = config["General"]["rounding_mode"]
 
-    if config["Frame"]["width"]:
-        args.graph_width = int(config["Frame"]["width"])
-
-    if config["Frame"]["height"]:
-        args.graph_height = int(config["Frame"]["height"])
-
-    if config["General"]["timezone"]:
-        args.timezone = config["General"]["timezone"]
-
-    if config["General"]["rounding_mode"]:
-        args.rounding_mode = config["General"]["rounding_mode"]
+    if "Frame" in config:
+        if "width" in config["Frame"]:
+            args.width = int(config["Frame"]["width"])
+        if "height" in config["Frame"]:
+            args.heigth = int(config["Frame"]["height"])
 
     return
 
@@ -50,15 +49,14 @@ def main():
     config.read(args.config)
     stocks_config.read(args.portfolio_config)
 
-    # verify that config files are correct
-    verify_config_keys(config, stocks_config)
-
+    # verify that config file is correct
+    # merge options from cli and config
+    verify_stock_keys(stocks_config)
     merge_config(config, args)
 
     portfolio.populate(stocks_config, args)
-
     portfolio.gen_graphs(
-        args.independent_graphs, args.graph_width, args.graph_height, args.timezone
+        args.independent_graphs, args.width, args.height, args.timezone
     )
 
     # print to the screen
@@ -128,26 +126,13 @@ def parse_args():
     return args
 
 
-def verify_config_keys(config, stocks_config):
-    config_keys = {
-        "DEFAULT": [],
-        "Frame": ["width", "height"],
-        "General": ["independent_graphs", "timezone", "rounding_mode"],
-    }
-    if list(config_keys.keys()) != list(config.keys()):
-        print("Invalid config.ini, there is a missing section.")
-        return
-    for section in config_keys:
-        if config_keys[section] != list(config[section].keys()):
-            print("Invalid config.ini, " + section + " is missing keys.")
-            return
-
+def verify_stock_keys(stocks_config):
     # check that at least one stock is in portfolio.ini
     if list(stocks_config.keys()) == ["DEFAULT"]:
         print(
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
-        return
+        quit()
 
 
 class Stock:
