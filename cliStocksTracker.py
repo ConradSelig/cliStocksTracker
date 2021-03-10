@@ -17,7 +17,25 @@ import yfinance as market
 from matplotlib import colors
 from colorama import Fore, Style
 from datetime import datetime, timedelta
+from renderer import Renderer
 
+def merge_config(config, args):
+    if (config["General"]["independent_graphs"]):
+        args.independent_graphs = config["General"]["independent_graphs"] == "True"
+
+    if (config["Frame"]["width"]):
+        args.graph_width = int(config["Frame"]["width"])
+
+    if (config["Frame"]["height"]):
+        args.graph_height = int(config["Frame"]["height"])
+
+    if (config["General"]["timezone"]):
+        args.timezone = config["General"]["timezone"]
+
+    if (config["General"]["rounding_mode"]):
+        args.rounding_mode = config["General"]["rounding_mode"]
+
+    return
 
 def main():
     config = multiconfigparser.ConfigParserMultiOpt()
@@ -27,27 +45,28 @@ def main():
     portfolio = Portfolio()
     graphs = []
 
-    # get config path
-    config_path = "config.ini" if not args.config else args.config
-    portfolio_path = "portfolio.ini" if not args.portfolio_config else args.portfolio_config
-
     # read config files
-    config.read(config_path)
-    stocks_config.read(portfolio_path)
+    config.read(args.config)
+    stocks_config.read(args.portfolio_config)
 
     # verify that config files are correct
     verify_config_keys(config, stocks_config)
 
+    merge_config(config, args)
+
     portfolio.populate(stocks_config, args)
 
     portfolio.gen_graphs(
-        config["General"]["independent_graphs"] == "True" or args.independent_graphs,
-        args.graph_width if args.width else int(config["Frame"]["width"]),
-        args.graph_height if args.height else int(config["Frame"]["height"]),
-        args.timezone or config["General"]["timezone"],
+        args.independent_graphs,
+        args.graph_width,
+        args.graph_height,
+        args.timezone
     )
-    portfolio.print_graphs()
-    portfolio.print_table(args.rounding_mode or config["General"]["rounding_mode"])
+
+    render_engine = Renderer(args.rounding_mode, portfolio)
+
+    #portfolio.print_graphs()
+    render_engine.render()
 
     return
 
@@ -55,49 +74,61 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser(description="Options for cliStockTracker.py")
     parser.add_argument(
-        "--width", type=int, help="integer for the width of the chart (default is 80)"
+        "--width", 
+        type=int, 
+        help="integer for the width of the chart (default is 80)", 
+        default=80
     )
     parser.add_argument(
-        "--height", type=int, help="integer for the height of the chart (default is 20)"
+        "--height", 
+        type=int, 
+        help="integer for the height of the chart (default is 20)", 
+        default=20
     )
     parser.add_argument(
         "--independent-graphs",
         action="store_true",
-        help="show a chart for each stock",
+        help="show a chart for each stock (default false)",
+        default = False
     )
     parser.add_argument(
         "--timezone",
         type=str,
-        default="America/New_York",
-        help="your timezone (ex: America/New_York)",
+        help="your timezone (exmple and default: America/New_York)",
+        default="America/New_York"
     )
     parser.add_argument(
         "-r",
         "--rounding-mode",
         type=str,
-        help="how should numbers be rounded (math | down)",
+        help="how should numbers be rounded (math | down) (default math)",
+        default="math"
     )
     parser.add_argument(
         "-ti",
         "--time-interval",
         type=str,
-        help="specify time interval for graphs (ex: 1m, 15m, 1h)",
+        help="specify time interval for graphs (ex: 1m, 15m, 1h) (default 1m)",
+        default="1m"
     )
     parser.add_argument(
         "-tp",
         "--time-period",
         type=str,
-        help="specify time period for graphs (ex: 15m, 1h, 1d)",
+        help="specify time period for graphs (ex: 15m, 1h, 1d) (default 1d)",
+        default="1d"
     )
     parser.add_argument(
         "--config",
         type=str,
         help="path to a config.ini file",
+        default="config.ini"
     )
     parser.add_argument(
         "--portfolio-config",
         type=str,
         help="path to a portfolio.ini file with your list of stonks",
+        default="portfolio.ini"
     )
     args = parser.parse_args()
     return args
@@ -123,15 +154,6 @@ def verify_config_keys(config, stocks_config):
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
         return
-
-
-class Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
 
 
 class Stock:
@@ -168,7 +190,7 @@ class Stock:
         )
 
 
-class Portfolio(metaclass=Singleton):
+class Portfolio(metaclass=utils.Singleton):
     def __init__(self, *args, **kwargs):
         self.stocks = {}
         self.stocks_metadata = {}
@@ -236,12 +258,17 @@ class Portfolio(metaclass=Singleton):
         time_period = args.time_period if args.time_period else "1d"
         time_interval = args.time_interval if args.time_interval else "1m"
 
-        return market.download(
-            tickers=stocks,
-            period=time_period,
-            interval=time_interval,
-            progress = False
-        )
+        try:
+            return market.download(
+                tickers=stocks,
+                period=time_period,
+                interval=time_interval,
+                progress = False
+            )
+        except:
+            print(
+                'cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again.'
+            )
 
     def populate(self, stocks_config, args):
         # download all stock data
@@ -337,193 +364,6 @@ class Portfolio(metaclass=Singleton):
             graph.gen_graph(autocolors.color_list)
         self.graphs = graphs
         return
-
-    def print_graphs(self):
-        for graph in self.graphs:
-            graph.draw()
-        return
-
-    def print_gains(self, format_str, gain, timespan, mode):
-        positive_gain = gain >= 0
-        gain_symbol = "+" if positive_gain else "-"
-        gain_verboge = "Gained" if positive_gain else "Lost"
-
-        print("{:25}".format("Value " + gain_verboge + " " + timespan + ": "), end="")
-        print(Fore.GREEN if positive_gain else Fore.RED, end="")
-        print(
-            format_str.format(
-                gain_symbol + "$" + str(abs(utils.round_value(gain, mode, 2)))
-            )
-            + format_str.format(
-                gain_symbol
-                + str(
-                    abs(utils.round_value(
-                        gain / self.current_value * 100, mode, 2
-                    ))
-                )
-                + "%"
-            )
-        )
-        print(Style.RESET_ALL, end="")
-        return
-
-    def print_portfolio_summary(self, format_str, table):
-        for line in table:
-            if line[-1] is None:
-                pass
-            else:
-                print(Fore.GREEN if line[-1] else Fore.RED, end="")
-
-            print("\t" + "".join([format_str.format(item) for item in line[:-1]]))
-            print(Style.RESET_ALL, end="")
-
-        # print the totals line market value then cost
-        print("{:112}".format("\nTotals: "), end="")
-        print(Fore.GREEN if self.current_value >= self.initial_value else Fore.RED, end="")
-        print(format_str.format("$" + str(round(self.current_value, 2))), end = "")
-        print(Fore.RESET, end="")
-        print(
-            "{:13}".format("")
-            + format_str.format("$" + str(round(self.initial_value, 2)))
-        )
-        return
-
-    def print_table(self, mode):
-        # table format:
-        #   ticker    owned   last    change  change% low high    avg
-        # each row will also get a bonus boolean at the end denoting what color to print the line:
-        #   None = don't color (headers)
-        #   True = green
-        #   False = red
-        # additional things to print: portfolio total value, portfolio change (and change %)
-
-        cell_width = 13  # buffer space between columns
-        table = [
-            [
-                "Ticker",
-                "Last",
-                "Change",
-                "Change%",
-                "Low",
-                "High",
-                "Daily Avg",
-                "Owned",
-                "Mkt Value",
-                "Avg Share",
-                "Total Cost",
-                None,
-            ]
-        ]
-        table.append(
-            ["-" * cell_width for _ in range(len(table[0])-1)]
-        )  # this is the solid line under the header
-        table[-1].append(None)  # make sure that solid line is not colored
-        self.current_value = 0
-        self.opening_value = 0
-        for stock in self.stocks.values():
-            line = []
-            change_d = utils.round_value(
-                stock.get_curr() - stock.get_open(), mode, 2
-            )  # change
-            change_p = utils.round_value(
-                (stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, mode, 2
-            )  # change %
-            line.append(stock.symbol)  # symbol
-            line.append(
-                "$" + str(utils.round_value(stock.get_curr(), mode, 2))
-            )  # current value
-            if change_d >= 0:  # insert the changes into the array
-                line.append("+$" + str(change_d))
-                line.append("+" + str(change_p) + "%")
-            else:
-                line.append(
-                    "-$" + str(change_d)[1:]
-                )  # string stripping here is to remove the native '-' sign
-                line.append("-" + str(change_p)[1:] + "%")
-            line.append(
-                "$" + str(utils.round_value(min(stock.get_data()), mode, 2))
-            )  # low
-            line.append(
-                "$" + str(utils.round_value(max(stock.get_data()), mode, 2))
-            )  # high
-            line.append(
-                "$"
-                + str(
-                    utils.round_value(
-                        sum(stock.get_data()) / len(stock.get_data()), mode, 2
-                    )
-                )
-            )  # avg
-            line.append(
-                str(round(self.stocks_metadata[stock.symbol][0], 3))
-            )  # number of stocks owned
-
-            # current market value of shares
-            curr_value = stock.calc_value(self.stocks_metadata[stock.symbol][0])
-            line.append(
-                "$"
-                + str(
-                    utils.round_value(
-                        curr_value, mode, 2
-                    )
-                )
-            )
-
-            # Average buy in cost
-            line.append(
-                str(round(self.stocks_metadata[stock.symbol][1], 2))
-            )
-
-            # total cost of shares
-            cost = self.stocks_metadata[stock.symbol][0] * self.stocks_metadata[stock.symbol][1]
-            line.append(
-                "$"
-                + str(
-                    utils.round_value(
-                        cost, mode, 2
-                    )
-                )
-            )
-            line.append(True if change_d >= 0 else False)
-            table.append(line)
-
-            # just add in the total value seeing as we're iterating stocks anyways
-            self.current_value += stock.calc_value(
-                self.stocks_metadata[stock.symbol][0]
-            )
-            # and the opening value of all the tracked stocks
-            self.opening_value += (
-                stock.get_open() * self.stocks_metadata[stock.symbol][0]
-            )
-
-        # generate ticker daily summary
-        print("\nPortfolio Summary:\n")
-        format_str = "{:" + str(cell_width) + "}"
-        self.print_portfolio_summary(format_str, table)
-
-        # generate overall stats
-        print(
-            "\n"
-            + "{:25}".format("Current Time: ")
-            + format_str.format(datetime.now().strftime("%A %b %d, %Y - %I:%M:%S %p"))
-        )
-        print(
-            "{:25}".format("Total Cost: ")
-            + format_str.format("$" + str(round(self.initial_value, 2)))
-        )
-        print(
-            "{:25}".format("Total Value: ")
-            + format_str.format("$" + str(round(self.current_value, 2)))
-        )
-
-        # print daily value
-        value_gained_day = self.current_value - self.opening_value
-        self.print_gains(format_str, value_gained_day, "Today", mode)
-
-        # print overall value
-        value_gained_all = self.current_value - self.initial_value
-        self.print_gains(format_str, value_gained_all, "Overall", mode)
-
 
 class Graph:
     def __init__(
