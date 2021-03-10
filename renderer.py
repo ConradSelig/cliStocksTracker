@@ -4,7 +4,8 @@ import utils
 from colorama import Fore, Style
 from datetime import datetime, timedelta
 
-# from cliStocksTracker import Portfolio 
+# from cliStocksTracker import Portfolio
+
 
 class Renderer(metaclass=utils.Singleton):
     def __init__(self, rounding: str, portfolio, *args, **kwargs):
@@ -12,7 +13,7 @@ class Renderer(metaclass=utils.Singleton):
         self.portfolio = portfolio
         self.cell_width = 13
         return
-    
+
     def render(self):
         for graph in self.portfolio.graphs:
             graph.draw()
@@ -32,12 +33,24 @@ class Renderer(metaclass=utils.Singleton):
 
         # print the totals line market value then cost
         print("{:112}".format("\nTotals: "), end="")
-        print(Fore.GREEN if self.portfolio.current_value >= self.portfolio.initial_value else Fore.RED, end="")
-        print(format_str.format("$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2))), end = "")
+        print(
+            Fore.GREEN
+            if self.portfolio.current_value >= self.portfolio.initial_value
+            else Fore.RED,
+            end="",
+        )
+        print(
+            format_str.format(
+                "$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2))
+            ),
+            end="",
+        )
         print(Fore.RESET, end="")
         print(
             "{:13}".format("")
-            + format_str.format("$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2)))
+            + format_str.format(
+                "$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2))
+            )
         )
         return
 
@@ -55,9 +68,11 @@ class Renderer(metaclass=utils.Singleton):
             + format_str.format(
                 gain_symbol
                 + str(
-                    abs(utils.round_value(
-                        gain / self.portfolio.current_value * 100, self.mode, 2
-                    ))
+                    abs(
+                        utils.round_value(
+                            gain / self.portfolio.current_value * 100, self.mode, 2
+                        )
+                    )
                 )
                 + "%"
             )
@@ -73,11 +88,15 @@ class Renderer(metaclass=utils.Singleton):
         )
         print(
             "{:25}".format("Total Cost: ")
-            + format_str.format("$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2)))
+            + format_str.format(
+                "$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2))
+            )
         )
         print(
             "{:25}".format("Total Value: ")
-            + format_str.format("$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2)))
+            + format_str.format(
+                "$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2))
+            )
         )
 
         # print daily value
@@ -116,7 +135,7 @@ class Renderer(metaclass=utils.Singleton):
             ]
         ]
         table.append(
-            ["-" * cell_width for _ in range(len(table[0])-1)]
+            ["-" * cell_width for _ in range(len(table[0]) - 1)]
         )  # this is the solid line under the header
         table[-1].append(None)  # make sure that solid line is not colored
         self.portfolio.current_value = 0
@@ -127,7 +146,9 @@ class Renderer(metaclass=utils.Singleton):
                 stock.get_curr() - stock.get_open(), self.mode, 2
             )  # change
             change_p = utils.round_value(
-                (stock.get_curr() - stock.get_open()) / stock.get_curr() * 100, self.mode, 2
+                (stock.get_curr() - stock.get_open()) / stock.get_curr() * 100,
+                self.mode,
+                2,
             )  # change %
             line.append(stock.symbol)  # symbol
             line.append(
@@ -157,35 +178,34 @@ class Renderer(metaclass=utils.Singleton):
             )  # avg
 
             line.append(
-                str(utils.round_value(self.portfolio.stocks_metadata[stock.symbol][0], self.mode, 3))
+                str(
+                    utils.round_value(
+                        self.portfolio.stocks_metadata[stock.symbol][0], self.mode, 3
+                    )
+                )
             )  # number of stocks owned
 
             # current market value of shares
-            curr_value = stock.calc_value(self.portfolio.stocks_metadata[stock.symbol][0])
-            line.append(
-                "$"
-                + str(
-                    utils.round_value(
-                        curr_value, self.mode, 2
-                    )
-                )
+            curr_value = stock.calc_value(
+                self.portfolio.stocks_metadata[stock.symbol][0]
             )
+            line.append("$" + str(utils.round_value(curr_value, self.mode, 2)))
 
             # Average buy in cost
             line.append(
-                str(utils.round_value(self.portfolio.stocks_metadata[stock.symbol][1], self.mode, 2))
-            )
-
-            # total cost of shares
-            cost = self.portfolio.stocks_metadata[stock.symbol][0] * self.portfolio.stocks_metadata[stock.symbol][1]
-            line.append(
-                "$"
-                + str(
+                str(
                     utils.round_value(
-                        cost, self.mode, 2
+                        self.portfolio.stocks_metadata[stock.symbol][1], self.mode, 2
                     )
                 )
             )
+
+            # total cost of shares
+            cost = (
+                self.portfolio.stocks_metadata[stock.symbol][0]
+                * self.portfolio.stocks_metadata[stock.symbol][1]
+            )
+            line.append("$" + str(utils.round_value(cost, self.mode, 2)))
             line.append(True if change_d >= 0 else False)
             table.append(line)
 

@@ -19,23 +19,25 @@ from colorama import Fore, Style
 from datetime import datetime, timedelta
 from renderer import Renderer
 
+
 def merge_config(config, args):
-    if (config["General"]["independent_graphs"]):
+    if config["General"]["independent_graphs"]:
         args.independent_graphs = config["General"]["independent_graphs"] == "True"
 
-    if (config["Frame"]["width"]):
+    if config["Frame"]["width"]:
         args.graph_width = int(config["Frame"]["width"])
 
-    if (config["Frame"]["height"]):
+    if config["Frame"]["height"]:
         args.graph_height = int(config["Frame"]["height"])
 
-    if (config["General"]["timezone"]):
+    if config["General"]["timezone"]:
         args.timezone = config["General"]["timezone"]
 
-    if (config["General"]["rounding_mode"]):
+    if config["General"]["rounding_mode"]:
         args.rounding_mode = config["General"]["rounding_mode"]
 
     return
+
 
 def main():
     config = multiconfigparser.ConfigParserMultiOpt()
@@ -57,15 +59,12 @@ def main():
     portfolio.populate(stocks_config, args)
 
     portfolio.gen_graphs(
-        args.independent_graphs,
-        args.graph_width,
-        args.graph_height,
-        args.timezone
+        args.independent_graphs, args.graph_width, args.graph_height, args.timezone
     )
 
     render_engine = Renderer(args.rounding_mode, portfolio)
 
-    #portfolio.print_graphs()
+    # portfolio.print_graphs()
     render_engine.render()
 
     return
@@ -74,61 +73,58 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser(description="Options for cliStockTracker.py")
     parser.add_argument(
-        "--width", 
-        type=int, 
-        help="integer for the width of the chart (default is 80)", 
-        default=80
+        "--width",
+        type=int,
+        help="integer for the width of the chart (default is 80)",
+        default=80,
     )
     parser.add_argument(
-        "--height", 
-        type=int, 
-        help="integer for the height of the chart (default is 20)", 
-        default=20
+        "--height",
+        type=int,
+        help="integer for the height of the chart (default is 20)",
+        default=20,
     )
     parser.add_argument(
         "--independent-graphs",
         action="store_true",
         help="show a chart for each stock (default false)",
-        default = False
+        default=False,
     )
     parser.add_argument(
         "--timezone",
         type=str,
         help="your timezone (exmple and default: America/New_York)",
-        default="America/New_York"
+        default="America/New_York",
     )
     parser.add_argument(
         "-r",
         "--rounding-mode",
         type=str,
         help="how should numbers be rounded (math | down) (default math)",
-        default="math"
+        default="math",
     )
     parser.add_argument(
         "-ti",
         "--time-interval",
         type=str,
         help="specify time interval for graphs (ex: 1m, 15m, 1h) (default 1m)",
-        default="1m"
+        default="1m",
     )
     parser.add_argument(
         "-tp",
         "--time-period",
         type=str,
         help="specify time period for graphs (ex: 15m, 1h, 1d) (default 1d)",
-        default="1d"
+        default="1d",
     )
     parser.add_argument(
-        "--config",
-        type=str,
-        help="path to a config.ini file",
-        default="config.ini"
+        "--config", type=str, help="path to a config.ini file", default="config.ini"
     )
     parser.add_argument(
         "--portfolio-config",
         type=str,
         help="path to a portfolio.ini file with your list of stonks",
-        default="portfolio.ini"
+        default="portfolio.ini",
     )
     args = parser.parse_args()
     return args
@@ -263,11 +259,11 @@ class Portfolio(metaclass=utils.Singleton):
                 tickers=stocks,
                 period=time_period,
                 interval=time_interval,
-                progress = False
+                progress=False,
             )
         except:
             print(
-                'cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again.'
+                "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
             )
 
     def populate(self, stocks_config, args):
@@ -365,6 +361,7 @@ class Portfolio(metaclass=utils.Singleton):
         self.graphs = graphs
         return
 
+
 class Graph:
     def __init__(
         self, stocks: list, width: int, height: int, colors: list, *args, **kwargs
@@ -439,7 +436,7 @@ class Graph:
             # iterating all stock data isn't ideal but we can refactor this later
             for q in range(len(stock.data)):
                 if math.isnan(stock.data[q]):
-                    index = q - 1 if q - 1 >=0 else q + 1
+                    index = q - 1 if q - 1 >= 0 else q + 1
                     stock.data[q] = stock.data[index]
 
             self.plot.plot(

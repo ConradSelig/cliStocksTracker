@@ -1,5 +1,6 @@
 from math import trunc, isnan
 
+
 class Singleton(type):
     _instances = {}
 
@@ -7,6 +8,7 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
 
 # Rounds value down to the desired number of decimals digits (controlled decimal_places) using math or truncate mode
 def round_value(value, mode, decimal_places):
