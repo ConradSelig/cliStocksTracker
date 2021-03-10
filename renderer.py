@@ -1,12 +1,13 @@
 import io
 import utils
+import portfolio
 
 from colorama import Fore, Style
 from datetime import datetime, timedelta
 
 
 class Renderer(metaclass=utils.Singleton):
-    def __init__(self, rounding: str, portfolio, *args, **kwargs):
+    def __init__(self, rounding: str, portfolio: portfolio.Portfolio, *args, **kwargs):
         self.mode = rounding
         self.portfolio = portfolio
         self.cell_width = 13
