@@ -147,7 +147,7 @@ def verify_config_keys(config, stocks_config):
         print(
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
-        return
+        exit()  # nothing else to do! Just force exit.
 
 
 class Stock:
