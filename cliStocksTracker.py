@@ -1,4 +1,3 @@
-import io
 import pytz
 import utils
 import plotille
