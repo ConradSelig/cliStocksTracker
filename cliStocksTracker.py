@@ -188,7 +188,7 @@ def verify_config_keys(config, stocks_config):
         print(
             "portfolio.ini has no stocks added or does not exist. There is nothing to show."
         )
-        return
+        exit()  # nothing else to do! Just force exit.
 
 
 class Singleton(type):
@@ -321,7 +321,7 @@ class Portfolio(metaclass=Singleton):
                     )
                 except:
                     print(
-                        'cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again.'
+                        "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
                     )
 
             # just get the value at each minute
