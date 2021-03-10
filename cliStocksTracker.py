@@ -9,6 +9,7 @@ import autocolors
 import contextlib
 import configparser
 import multiconfigparser
+import math
 
 import numpy as np
 import yfinance as market
@@ -27,16 +28,8 @@ def main():
     graphs = []
 
     # get config path
-    config_path = "config.ini"
-    portfolio_path = "portfolio.ini"
-    if args.config:
-        config_path = args.config
-    if args.portfolio_config:
-        portfolio_path = args.portfolio_config
-
-    # generate config files
-    if args.generate_config:
-        gen_config_files(config_path, portfolio_path)
+    config_path = "config.ini" if not args.config else args.config
+    portfolio_path = "portfolio.ini" if not args.portfolio_config else args.portfolio_config
 
     # read config files
     config.read(config_path)
@@ -45,34 +38,16 @@ def main():
     # verify that config files are correct
     verify_config_keys(config, stocks_config)
 
-    # get timezone for graph
-    cfg_timezone = config["General"]["timezone"]
-    if args.timezone:
-        cfg_timezone = args.timezone
-
-    # get rounding mode
-    rounding_mode = config["General"]["rounding_mode"]
-    if args.rounding_mode:
-        rounding_mode = args.rounding_mode
-
-    # get graph height/width
-    graph_width = int(config["Frame"]["width"])
-    graph_height = int(config["Frame"]["height"])
-    if args.width:
-        graph_width = args.graph_width
-    if args.height:
-        graph_height = args.graph_height
-
     portfolio.populate(stocks_config, args)
 
     portfolio.gen_graphs(
         config["General"]["independent_graphs"] == "True" or args.independent_graphs,
-        graph_width,
-        graph_height,
-        cfg_timezone,
+        args.graph_width if args.width else int(config["Frame"]["width"]),
+        args.graph_height if args.height else int(config["Frame"]["height"]),
+        args.timezone or config["General"]["timezone"],
     )
     portfolio.print_graphs()
-    portfolio.print_table(rounding_mode)
+    portfolio.print_table(args.rounding_mode or config["General"]["rounding_mode"])
 
     return
 
@@ -124,49 +99,8 @@ def parse_args():
         type=str,
         help="path to a portfolio.ini file with your list of stonks",
     )
-    parser.add_argument(
-        "-g",
-        "--generate-config",
-        action="store_true",
-        help="generates example config files",
-    )
     args = parser.parse_args()
     return args
-
-
-def gen_config_files(config_path, portfolio_path):
-    example_config_str = """\
-[Frame]
-width=80
-height=20 
-
-[General]
-independent_graphs=False
-timezone=America/New_York
-rounding_mode=math
-"""
-
-    example_portfolio_str = """\
-[ AAPL ]
-graph=True
-buy=10@100
-buy=5@120
-sell=3@122
-sell=8@125
-color=#FFFF00 
-
-[ SPKE ]
-graph=False
-buy=1@10.28
-buy=1@10.30
-sell=1@10.32
-color=lime
-"""
-
-    with open(config_path, "w") as config_file:
-        config_file.write(example_config_str)
-    with open(portfolio_path, "w") as portfolio_file:
-        portfolio_file.write(example_portfolio_str)
 
 
 def verify_config_keys(config, stocks_config):
@@ -236,14 +170,14 @@ class Stock:
 
 class Portfolio(metaclass=Singleton):
     def __init__(self, *args, **kwargs):
-        self.stocks = []
+        self.stocks = {}
         self.stocks_metadata = {}
         self.initial_value = 0
         self.color_list = []
         return
 
     def add_stock(self, stock: Stock, count, value, color):
-        self.stocks.append(stock)
+        self.stocks[stock.symbol] = stock
         self.stocks_metadata[stock.symbol] = [float(count), float(value)]
         self.initial_value += (
             self.stocks_metadata[stock.symbol][0]
@@ -256,10 +190,7 @@ class Portfolio(metaclass=Singleton):
         return self.stocks
 
     def get_stock(self, symbol):
-        for stock in self.stocks:
-            if stock.symbol == symbol:
-                return stock
-        return None
+        return self.stocks[symbol]
 
     def get_color_list(self):
         for stock in self.stocks:
@@ -298,31 +229,31 @@ class Portfolio(metaclass=Singleton):
 
         return count, bought_at
 
-    def populate(self, stocks_config, args):
+    # download all ticker data in a single request
+    # harder to parse but this provides a signficant performance boost
+    def download_market_data(self, args, stocks):
+        # get graph time interval and period
+        time_period = args.time_period if args.time_period else "1d"
+        time_interval = args.time_interval if args.time_interval else "1m"
 
-        for stock in stocks_config.sections():
+        return market.download(
+            tickers=stocks,
+            period=time_period,
+            interval=time_interval,
+            progress = False
+        )
+
+    def populate(self, stocks_config, args):
+        # download all stock data
+        market_data = self.download_market_data(args, stocks_config.sections())
+
+        # iterate through each ticker data
+        for td in market_data[["Open"]]:
+            stock = td[1]
             new_stock = Stock(stock)
 
-            # get graph time interval and period
-            time_period = "1d"
-            time_interval = "1m"
-            if args.time_period:
-                time_period = args.time_period
-            if args.time_interval:
-                time_interval = args.time_interval
-
-            # get the stock data
-            with contextlib.redirect_stdout(
-                io.StringIO()
-            ):  # this suppress output (library doesn't have a silent mode?)
-                data = market.download(
-                    tickers=stock, period=time_period, interval=time_interval
-                )
-
-            # just get the value at each minute
-            data = data[["Open"]].to_numpy()
-            data = [_[0] for _ in data]
-            # and save that parsed data
+            # convert the numpy array into a list of prices
+            data = market_data["Open"][stock].values.tolist()
             new_stock.data = data
 
             # save the current stock value
@@ -371,12 +302,13 @@ class Portfolio(metaclass=Singleton):
 
             # finally, add the stock to the portfolio
             self.add_stock(new_stock, count, bought_at, color)
+            continue
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []
         if not independent_graphs:
             graphing_list = []
-            for stock in self.get_stocks():
+            for stock in self.get_stocks().values():
                 if stock.graph:
                     graphing_list.append(stock)
             if len(graphing_list) > 0:
@@ -390,7 +322,7 @@ class Portfolio(metaclass=Singleton):
                     )
                 )
         else:
-            for i, stock in enumerate(self.get_stocks()):
+            for i, stock in enumerate(self.get_stocks().values()):
                 if stock.graph:
                     graphs.append(
                         Graph(
@@ -488,7 +420,7 @@ class Portfolio(metaclass=Singleton):
         table[-1].append(None)  # make sure that solid line is not colored
         self.current_value = 0
         self.opening_value = 0
-        for stock in self.stocks:
+        for stock in self.stocks.values():
             line = []
             change_d = utils.round_value(
                 stock.get_curr() - stock.get_open(), mode, 2
@@ -572,7 +504,11 @@ class Portfolio(metaclass=Singleton):
         # generate overall stats
         print(
             "\n"
-            + "{:25}".format("Total Cost: ")
+            + "{:25}".format("Current Time: ")
+            + format_str.format(datetime.now().strftime("%A %b %d, %Y - %I:%M:%S %p"))
+        )
+        print(
+            "{:25}".format("Total Cost: ")
             + format_str.format("$" + str(round(self.initial_value, 2)))
         )
         print(
@@ -653,11 +589,18 @@ class Graph:
                 color = webcolors.hex_to_rgb(auto_colors[i % 67])
             elif self.colors[i].startswith("#"):
                 color = webcolors.hex_to_rgb(self.colors[i])
-
             else:
                 color = webcolors.hex_to_rgb(
                     webcolors.CSS3_NAMES_TO_HEX[self.colors[i]]
                 )
+
+            # some ticker data returns a NaN value for certain points
+            # instead of removing them, steal your neighbors value so we can graph
+            # iterating all stock data isn't ideal but we can refactor this later
+            for q in range(len(stock.data)):
+                if math.isnan(stock.data[q]):
+                    index = q - 1 if q - 1 >=0 else q + 1
+                    stock.data[q] = stock.data[index]
 
             self.plot.plot(
                 [self.start + timedelta(minutes=i) for i in range(len(stock.data))],
