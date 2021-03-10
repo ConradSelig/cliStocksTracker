@@ -62,9 +62,8 @@ def main():
         args.independent_graphs, args.graph_width, args.graph_height, args.timezone
     )
 
+    # print to the screen
     render_engine = Renderer(args.rounding_mode, portfolio)
-
-    # portfolio.print_graphs()
     render_engine.render()
 
     return
@@ -325,7 +324,6 @@ class Portfolio(metaclass=utils.Singleton):
 
             # finally, add the stock to the portfolio
             self.add_stock(new_stock, count, bought_at, color)
-            continue
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []

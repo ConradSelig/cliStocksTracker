@@ -4,8 +4,6 @@ import utils
 from colorama import Fore, Style
 from datetime import datetime, timedelta
 
-# from cliStocksTracker import Portfolio
-
 
 class Renderer(metaclass=utils.Singleton):
     def __init__(self, rounding: str, portfolio, *args, **kwargs):
