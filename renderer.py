@@ -21,6 +21,9 @@ class Renderer(metaclass=utils.Singleton):
         self.print_table()
         return
 
+    def format_number(self, value) -> str:
+        return str(abs(utils.round_value(value, self.mode, 2)))
+
     def print_ticker_summaries(self, format_str, table):
         for line in table:
             if line[-1] is None:
@@ -35,13 +38,13 @@ class Renderer(metaclass=utils.Singleton):
         print("{:112}".format("\nTotals: "), end="")
         print(
             Fore.GREEN
-            if self.portfolio.current_value >= self.portfolio.initial_value
+            if self.portfolio.market_value >= self.portfolio.cost_value
             else Fore.RED,
             end="",
         )
         print(
             format_str.format(
-                "$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2))
+                "$" + str(utils.round_value(self.portfolio.market_value, self.mode, 2))
             ),
             end="",
         )
@@ -49,7 +52,7 @@ class Renderer(metaclass=utils.Singleton):
         print(
             "{:13}".format("")
             + format_str.format(
-                "$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2))
+                "$" + str(utils.round_value(self.portfolio.cost_value, self.mode, 2))
             )
         )
         return
@@ -70,7 +73,7 @@ class Renderer(metaclass=utils.Singleton):
                 + str(
                     abs(
                         utils.round_value(
-                            gain / self.portfolio.current_value * 100, self.mode, 2
+                            gain / self.portfolio.cost_value * 100, self.mode, 2
                         )
                     )
                 )
@@ -88,23 +91,21 @@ class Renderer(metaclass=utils.Singleton):
         )
         print(
             "{:25}".format("Total Cost: ")
-            + format_str.format(
-                "$" + str(utils.round_value(self.portfolio.initial_value, self.mode, 2))
-            )
+            + format_str.format("$" + self.format_number(self.portfolio.cost_value))
         )
         print(
             "{:25}".format("Total Value: ")
-            + format_str.format(
-                "$" + str(utils.round_value(self.portfolio.current_value, self.mode, 2))
-            )
+            + format_str.format("$" + self.format_number(self.portfolio.market_value))
         )
 
         # print daily value
-        value_gained_day = self.portfolio.current_value - self.portfolio.opening_value
+        value_gained_day = (
+            self.portfolio.market_value - self.portfolio.open_market_value
+        )
         self.print_gains(format_str, value_gained_day, "Today")
 
         # print overall value
-        value_gained_all = self.portfolio.current_value - self.portfolio.initial_value
+        value_gained_all = self.portfolio.market_value - self.portfolio.cost_value
         self.print_gains(format_str, value_gained_all, "Overall")
         return
 
@@ -138,85 +139,33 @@ class Renderer(metaclass=utils.Singleton):
             ["-" * cell_width for _ in range(len(table[0]) - 1)]
         )  # this is the solid line under the header
         table[-1].append(None)  # make sure that solid line is not colored
-        self.portfolio.current_value = 0
-        self.portfolio.opening_value = 0
-        for stock in self.portfolio.stocks.values():
+
+        for entry in self.portfolio.stocks.values():
+            stock = entry.stock
+
             line = []
-            change_d = utils.round_value(
-                stock.get_curr() - stock.get_open(), self.mode, 2
-            )  # change
-            change_p = utils.round_value(
-                (stock.get_curr() - stock.get_open()) / stock.get_curr() * 100,
-                self.mode,
-                2,
-            )  # change %
-            line.append(stock.symbol)  # symbol
-            line.append(
-                "$" + str(utils.round_value(stock.get_curr(), self.mode, 2))
-            )  # current value
-            if change_d >= 0:  # insert the changes into the array
-                line.append("+$" + str(change_d))
-                line.append("+" + str(change_p) + "%")
-            else:
-                line.append(
-                    "-$" + str(change_d)[1:]
-                )  # string stripping here is to remove the native '-' sign
-                line.append("-" + str(change_p)[1:] + "%")
-            line.append(
-                "$" + str(utils.round_value(min(stock.get_data()), self.mode, 2))
-            )  # low
-            line.append(
-                "$" + str(utils.round_value(max(stock.get_data()), self.mode, 2))
-            )  # high
-            line.append(
-                "$"
-                + str(
-                    utils.round_value(
-                        sum(stock.get_data()) / len(stock.get_data()), self.mode, 2
-                    )
-                )
-            )  # avg
+            line.append(stock.symbol)
+            line.append("$" + self.format_number(stock.curr_value))
 
+            # change stats
+            change_symbol = "+" if stock.change_amount >= 0 else "-"
+            line.append(change_symbol + "$" + self.format_number(stock.change_amount))
             line.append(
-                str(
-                    utils.round_value(
-                        self.portfolio.stocks_metadata[stock.symbol][0], self.mode, 3
-                    )
-                )
-            )  # number of stocks owned
-
-            # current market value of shares
-            curr_value = stock.calc_value(
-                self.portfolio.stocks_metadata[stock.symbol][0]
+                change_symbol + self.format_number(stock.change_percentage) + "%"
             )
-            line.append("$" + str(utils.round_value(curr_value, self.mode, 2)))
 
-            # Average buy in cost
-            line.append(
-                str(
-                    utils.round_value(
-                        self.portfolio.stocks_metadata[stock.symbol][1], self.mode, 2
-                    )
-                )
-            )
+            line.append("$" + self.format_number(stock.low))
+            line.append("$" + self.format_number(stock.high))
+            line.append("$" + self.format_number(stock.average))
+
+            line.append(self.format_number(entry.count))
+            line.append("$" + self.format_number(entry.holding_market_value))
+            line.append(self.format_number(entry.average_cost))
 
             # total cost of shares
-            cost = (
-                self.portfolio.stocks_metadata[stock.symbol][0]
-                * self.portfolio.stocks_metadata[stock.symbol][1]
-            )
-            line.append("$" + str(utils.round_value(cost, self.mode, 2)))
-            line.append(True if change_d >= 0 else False)
+            line.append("$" + self.format_number(entry.cost_basis))
+            line.append(True if stock.change_amount >= 0 else False)
             table.append(line)
-
-            # just add in the total value seeing as we're iterating stocks anyways
-            self.portfolio.current_value += stock.calc_value(
-                self.portfolio.stocks_metadata[stock.symbol][0]
-            )
-            # and the opening value of all the tracked stocks
-            self.portfolio.opening_value += (
-                stock.get_open() * self.portfolio.stocks_metadata[stock.symbol][0]
-            )
 
         # generate ticker daily summary
         print("\nPortfolio Summary:\n")

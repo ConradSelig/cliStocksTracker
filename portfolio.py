@@ -8,59 +8,62 @@ import autocolors
 import numpy as np
 import yfinance as market
 
+from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 
+@dataclass
 class Stock:
-    def __init__(self, symbol: str, *args, **kwargs):
-        self.symbol = symbol
-        self.value = 0
-        self.data = []
-        self.graph = False  # are we going to be graphing this stock?
-        self.color = None
+    symbol: str
+    data: list
+
+    def __post_init__(self):
+        self.curr_value = self.data[-1]
+        self.open_value = self.data[0]
+        self.high = max(self.data)
+        self.low = min(self.data)
+        self.average = sum(self.data) / len(self.data)
+        self.change_amount = self.curr_value - self.open_value
+        self.change_percentage = (self.change_amount / self.curr_value) * 100
         return
 
-    def calc_value(self, stocks_count):
-        return self.data[-1] * stocks_count
 
-    def get_curr(self):
-        return self.data[-1]
+@dataclass
+class PortfolioEntry:
+    stock: Stock
+    count: float
+    average_cost: float
+    graph: bool = False
+    color: str = None
 
-    def get_open(self):
-        return self.data[0]
-
-    def get_data(self):
-        return self.data
-
-    def __str__(self):
-        return (
-            "Stock:"
-            + str(self.symbol)
-            + " "
-            + str(self.value)
-            + " "
-            + str(len(self.data))
-            + " "
-            + str(self.graph)
-        )
+    def __post_init__(self):
+        self.holding_market_value = self.stock.curr_value * self.count
+        self.holding_open_value = self.stock.open_value * self.count
+        self.cost_basis = self.count * self.average_cost
+        return
 
 
 class Portfolio(metaclass=utils.Singleton):
     def __init__(self, *args, **kwargs):
         self.stocks = {}
-        self.stocks_metadata = {}
-        self.initial_value = 0
-        self.color_list = []
+
+        self.open_market_value = 0  # portfolio worth at market open
+        self.cost_value = (
+            0  # amount invested into the portfolio (sum of cost of shares)
+        )
+        self.market_value = 0  # current market value of shares
         return
 
-    def add_stock(self, stock: Stock, count, value, color):
-        self.stocks[stock.symbol] = stock
-        self.stocks_metadata[stock.symbol] = [float(count), float(value)]
-        self.initial_value += (
-            self.stocks_metadata[stock.symbol][0]
-            * self.stocks_metadata[stock.symbol][1]
-        )
-        self.color_list.append(color)
+    def add_entry(
+        self, stock: Stock, count: float, bought_at: float, color: str, graph: bool
+    ):
+        entry = PortfolioEntry(stock, count, bought_at, graph, color)
+        self.stocks[stock.symbol] = entry
+
+        self.open_market_value += entry.holding_open_value
+        self.market_value += entry.holding_market_value
+        self.cost_value += entry.cost_basis
         return
 
     def get_stocks(self):
@@ -68,10 +71,6 @@ class Portfolio(metaclass=utils.Singleton):
 
     def get_stock(self, symbol):
         return self.stocks[symbol]
-
-    def get_color_list(self):
-        for stock in self.stocks:
-            self.color_list.append(stock.color)
 
     def average_buyin(self, buys: list, sells: list):
         buy_c, buy_p, sell_c, sell_p, count, bought_at = 0, 0, 0, 0, 0, 0
@@ -132,40 +131,33 @@ class Portfolio(metaclass=utils.Singleton):
         # iterate through each ticker data
         data_key = "Open"
         for td in market_data[[data_key]]:
-            stock = td[1]
-            new_stock = Stock(stock)
+            ticker = td[1]
 
             # convert the numpy array into a list of prices while removing NaN values
-            data = market_data[data_key][stock].values[
-                ~np.isnan(market_data[data_key][stock].values)
+            data = market_data[data_key][ticker].values[
+                ~np.isnan(market_data[data_key][ticker].values)
             ]
-            new_stock.data = data
+            new_stock = Stock(ticker, data)
 
-            # save the current stock value
-            new_stock.value = data[-1]
-
-            # are we graphing this stock?
-            if "graph" in list(stocks_config[stock].keys()):
-                if stocks_config[stock]["graph"] == "True":
-                    new_stock.graph = True
-
-            if "buy" in list(stocks_config[stock].keys()):
-                buyin = stocks_config[stock]["buy"]
-            else:
-                buyin = ()
-
-            if "sell" in list(stocks_config[stock].keys()):
-                sellout = stocks_config[stock]["sell"]
-            else:
-                sellout = ()
-
+            # calculate average buy in
+            buyin = (
+                stocks_config[ticker]["buy"]
+                if "buy" in list(stocks_config[ticker].keys())
+                else ()
+            )
+            sellout = (
+                stocks_config[ticker]["sell"]
+                if "sell" in list(stocks_config[ticker].keys())
+                else ()
+            )
             count, bought_at = self.average_buyin(buyin, sellout)
 
             # Check the stock color for graphing
-            if "color" in list(stocks_config[stock].keys()):
-                color = str(stocks_config[stock]["color"])
-            else:
-                color = None
+            color = (
+                str(stocks_config[ticker]["color"])
+                if "color" in list(stocks_config[ticker].keys())
+                else None
+            )
 
             # Check that the stock color that was entered is legal
             colorWarningFlag = True
@@ -180,43 +172,51 @@ class Portfolio(metaclass=utils.Singleton):
             if colorWarningFlag:
                 warnings.warn(
                     "The color selected for "
-                    + stock
+                    + ticker
                     + " is not in not in the approved list. Automatic color selection will be used."
                 )
                 color = None
 
+            should_graph = (
+                "graph" in list(stocks_config[ticker].keys())
+                and stocks_config[ticker]["graph"] == "True"
+            )
+
             # finally, add the stock to the portfolio
-            self.add_stock(new_stock, count, bought_at, color)
+            self.add_entry(new_stock, count, bought_at, color, should_graph)
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []
         if not independent_graphs:
             graphing_list = []
-            for stock in self.get_stocks().values():
-                if stock.graph:
-                    graphing_list.append(stock)
+            color_list = []
+            for sm in self.get_stocks().values():
+                if sm.graph:
+                    graphing_list.append(sm.stock)
+                    color_list.append(sm.color)
             if len(graphing_list) > 0:
                 graphs.append(
                     Graph(
                         graphing_list,
                         graph_width,
                         graph_height,
-                        self.color_list[: len(graphing_list)],
+                        color_list,
                         timezone=cfg_timezone,
                     )
                 )
         else:
-            for i, stock in enumerate(self.get_stocks().values()):
-                if stock.graph:
+            for sm in self.get_stocks().values():
+                if sm.graph:
                     graphs.append(
                         Graph(
-                            [stock],
+                            [sm.stock],
                             graph_width,
                             graph_height,
-                            [self.color_list[i]],
+                            [sm.color],
                             timezone=cfg_timezone,
                         )
                     )
+
         for graph in graphs:
             graph.gen_graph(autocolors.color_list)
         self.graphs = graphs
