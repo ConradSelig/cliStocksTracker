@@ -260,9 +260,7 @@ class Portfolio(metaclass=utils.Singleton):
                 progress=False,
             )
         except:
-            print(
-                "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
-            )
+            raise Exception("Failed to fetch market data")
 
     def populate(self, stocks_config, args):
         # download all stock data
@@ -275,7 +273,9 @@ class Portfolio(metaclass=utils.Singleton):
             new_stock = Stock(stock)
 
             # convert the numpy array into a list of prices while removing NaN values
-            data = market_data[data_key][stock].values[~np.isnan(market_data[data_key][stock].values)]
+            data = market_data[data_key][stock].values[
+                ~np.isnan(market_data[data_key][stock].values)
+            ]
             new_stock.data = data
 
             # save the current stock value
