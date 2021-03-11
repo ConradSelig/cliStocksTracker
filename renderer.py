@@ -35,7 +35,9 @@ class Renderer(metaclass=utils.Singleton):
             print(Style.RESET_ALL, end="")
 
         # print the totals line market value then cost
-        print("{:138}".format("\nTotals: "), end="")
+        print("{:126}".format("\nTotals: "), end="")
+
+        # current market value
         print(
             Fore.GREEN
             if self.portfolio.market_value >= self.portfolio.cost_value
@@ -44,15 +46,32 @@ class Renderer(metaclass=utils.Singleton):
         )
         print(
             format_str.format(
-                "$" + str(utils.round_value(self.portfolio.market_value, self.mode, 2))
+                "$" + self.format_number(self.portfolio.market_value)
             ),
             end="",
         )
         print(Fore.RESET, end="")
+
+        # G/L Total
+        print(
+            Fore.GREEN
+            if self.portfolio.market_value >= self.portfolio.cost_value
+            else Fore.RED,
+            end="",
+        )
         print(
             "{:13}".format("")
             + format_str.format(
-                "$" + str(utils.round_value(self.portfolio.cost_value, self.mode, 2))
+                self.format_gl(self.portfolio.market_value - self.portfolio.cost_value, True)
+            ),
+            end="",
+        )
+        print(Fore.RESET, end="")
+
+        # portfolio cost total
+        print(
+            format_str.format(
+                "$" + self.format_number(self.portfolio.cost_value)
             )
         )
         return
@@ -117,15 +136,6 @@ class Renderer(metaclass=utils.Singleton):
         return change_symbol + self.format_number(value)
 
     def print_table(self):
-        # table format:
-        #   ticker    owned   last    change  change% low high    avg
-        # each row will also get a bonus boolean at the end denoting what color to print the line:
-        #   None = don't color (headers)
-        #   True = green
-        #   False = red
-        # additional things to print: portfolio total value, portfolio change (and change %)
-
-        cell_width = 13  # buffer space between columns
         table = [
             [
                 "Ticker",
@@ -145,7 +155,7 @@ class Renderer(metaclass=utils.Singleton):
             ]
         ]
         table.append(
-            ["-" * cell_width for _ in range(len(table[0]) - 1)]
+            ["-" * self.cell_width for _ in range(len(table[0]) - 1)]
         )  # this is the solid line under the header
         table[-1].append(None)  # make sure that solid line is not colored
 
@@ -177,7 +187,7 @@ class Renderer(metaclass=utils.Singleton):
 
         # generate ticker daily summary
         print("\nPortfolio Summary:\n")
-        format_str = "{:" + str(cell_width) + "}"
+        format_str = "{:" + str(self.cell_width) + "}"
         self.print_ticker_summaries(format_str, table)
 
         self.print_overall_summary(format_str)
