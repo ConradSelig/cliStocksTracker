@@ -40,6 +40,8 @@ class PortfolioEntry:
         self.holding_market_value = self.stock.curr_value * self.count
         self.holding_open_value = self.stock.open_value * self.count
         self.cost_basis = self.count * self.average_cost
+        self.gains = self.holding_market_value - self.cost_basis
+        self.gains_per_share = self.gains / self.count
         return
 
 

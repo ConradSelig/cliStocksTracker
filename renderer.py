@@ -35,7 +35,7 @@ class Renderer(metaclass=utils.Singleton):
             print(Style.RESET_ALL, end="")
 
         # print the totals line market value then cost
-        print("{:112}".format("\nTotals: "), end="")
+        print("{:138}".format("\nTotals: "), end="")
         print(
             Fore.GREEN
             if self.portfolio.market_value >= self.portfolio.cost_value
@@ -109,6 +109,13 @@ class Renderer(metaclass=utils.Singleton):
         self.print_gains(format_str, value_gained_all, "Overall")
         return
 
+    def format_gl(self, value: float, is_currency:bool) -> str:
+        change_symbol = "+" if value >= 0 else "-"
+        if (is_currency):
+            change_symbol += "$"
+
+        return change_symbol + self.format_number(value)
+
     def print_table(self):
         # table format:
         #   ticker    owned   last    change  change% low high    avg
@@ -129,8 +136,10 @@ class Renderer(metaclass=utils.Singleton):
                 "High",
                 "Daily Avg",
                 "Owned",
+                "G/L/S",
                 "Mkt Value",
                 "Avg Share",
+                "G/L Total",
                 "Total Cost",
                 None,
             ]
@@ -148,19 +157,18 @@ class Renderer(metaclass=utils.Singleton):
             line.append("$" + self.format_number(stock.curr_value))
 
             # change stats
-            change_symbol = "+" if stock.change_amount >= 0 else "-"
-            line.append(change_symbol + "$" + self.format_number(stock.change_amount))
-            line.append(
-                change_symbol + self.format_number(stock.change_percentage) + "%"
-            )
+            line.append(self.format_gl(stock.change_amount, True))
+            line.append(self.format_gl(stock.change_percentage, False) + "%")
 
             line.append("$" + self.format_number(stock.low))
             line.append("$" + self.format_number(stock.high))
             line.append("$" + self.format_number(stock.average))
 
             line.append(self.format_number(entry.count))
+            line.append(self.format_gl(entry.gains_per_share, True))
             line.append("$" + self.format_number(entry.holding_market_value))
             line.append(self.format_number(entry.average_cost))
+            line.append(self.format_gl(entry.gains, True))
 
             # total cost of shares
             line.append("$" + self.format_number(entry.cost_basis))
