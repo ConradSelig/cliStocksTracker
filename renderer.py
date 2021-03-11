@@ -109,9 +109,9 @@ class Renderer(metaclass=utils.Singleton):
         self.print_gains(format_str, value_gained_all, "Overall")
         return
 
-    def format_gl(self, value: float, is_currency:bool) -> str:
+    def format_gl(self, value: float, is_currency: bool) -> str:
         change_symbol = "+" if value >= 0 else "-"
-        if (is_currency):
+        if is_currency:
             change_symbol += "$"
 
         return change_symbol + self.format_number(value)
