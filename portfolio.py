@@ -8,7 +8,6 @@ import autocolors
 import numpy as np
 import yfinance as market
 
-from collections import namedtuple
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
