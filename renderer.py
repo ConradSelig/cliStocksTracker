@@ -3,8 +3,40 @@ import utils
 import portfolio
 
 from colorama import Fore, Style
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import List, Callable
 
+
+@dataclass
+class CellData:
+    value: str
+    color: str = None
+
+@dataclass
+class ColumnFormatter:
+    header: str
+    width: int
+
+    # function that takes a stock and generates the cell data for this column
+    # generator: Callable[[portfolio.Stock], CellData] = None
+    generator: Callable[[object], CellData] = None
+
+table_headers = {
+    "Ticker" : ColumnFormatter("Ticker", 10, lambda stock: CellData(stock.symbol)),
+    "Current Price" : ColumnFormatter("Last", 13, lambda stock: CellData(stock.curr_value)),
+    "Daily Change Amount": ColumnFormatter("Change", 12, lambda stock: CellData(stock.change_amount)),
+    "Daily Change Percentage": ColumnFormatter("Change%", 12, lambda stock: CellData(stock.change_percentage)),
+    "Low": ColumnFormatter("Low", 13, lambda stock: CellData(stock.low)),
+    "High": ColumnFormatter("High", 13, lambda stock: CellData(stock.high)),
+    "Daily Average Price": ColumnFormatter("Daily Avg", 13, lambda stock: CellData(stock.average)),
+    "Stocks Owned": ColumnFormatter("Owned", 8, lambda entry: CellData(entry.count)),
+    "Gains per Share": ColumnFormatter("G/L/S", 12, lambda entry: CellData(entry.gains_per_share)),
+    "Current Market Value": ColumnFormatter("Mkt Value", 13, lambda entry: CellData(entry.holding_market_value)),
+    "Average Buy Price": ColumnFormatter("Buy Price", 12, lambda entry: CellData(entry.average_cost)),
+    "Total Share Gains": ColumnFormatter("G/L Total", 13, lambda entry: CellData(entry.gains)),
+    "Total Share Cost": ColumnFormatter("Cost", 13, lambda entry: CellData(entry.cost_basis)),
+}
 
 class Renderer(metaclass=utils.Singleton):
     def __init__(self, rounding: str, portfolio: portfolio.Portfolio, *args, **kwargs):
@@ -18,7 +50,8 @@ class Renderer(metaclass=utils.Singleton):
         for graph in self.portfolio.graphs:
             graph.draw()
 
-        self.print_table()
+        self.print_new_table()
+        # self.print_table()
         return
 
     def format_number(self, value) -> str:
@@ -134,6 +167,34 @@ class Renderer(metaclass=utils.Singleton):
             change_symbol += "$"
 
         return change_symbol + self.format_number(value)
+
+    def print_new_table(self):
+        # print heading
+        print("\nPortfolio Summary:\n")
+
+        # print the heading
+        heading = "\t"
+        divider = "\t"
+        for column in table_headers.values():
+            col_format = "{:" + str(column.width) + "}"
+            heading += col_format.format(column.header)
+            divider += "-" * column.width
+        print(heading + "\n" + divider)
+
+        # now print every portfolio entry
+        for entry in self.portfolio.stocks.values():
+            line = "\t"
+            stock = entry.stock
+            
+            col_formatter = table_headers["Ticker"]
+            curr_format = "{:" + str(table_headers["Ticker"].width) + "}"
+            line += curr_format.format(col_formatter.generator(stock).value)
+
+            print(line)
+
+
+
+        return
 
     def print_table(self):
         table = [
