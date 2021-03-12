@@ -118,7 +118,7 @@ class Portfolio(metaclass=utils.Singleton):
                 tickers=stocks,
                 period=time_period,
                 interval=time_interval,
-                progress=False,
+                progress=True,
             )
         except:
             print(

@@ -49,7 +49,7 @@ _portfolio_column_formatters = {
     "Stocks Owned": ColumnFormatter("Owned", 9, lambda entry: CellData(format_number(entry.count))),
     "Gains per Share": ColumnFormatter("G/L/S", 12, lambda entry: CellData(format_gl(entry.gains_per_share), Fore.GREEN if entry.gains_per_share >= 0 else Fore.RED)),
     "Current Market Value": ColumnFormatter("Mkt V", 12, lambda entry: CellData(format_number(entry.holding_market_value))),
-    "Average Buy Price": ColumnFormatter("Buy", 12, lambda entry: CellData(format_number(entry.average_cost))),
+    "Average Buy Price": ColumnFormatter("Buy", 12, lambda entry: CellData(format_number(entry.average_cost), Fore.GREEN if entry.average_cost <= entry.stock.curr_value else Fore.RED)),
     "Total Share Gains": ColumnFormatter("G/L/T", 12, lambda entry: CellData(format_gl(entry.gains), Fore.GREEN if entry.gains >= 0 else Fore.RED)),
     "Total Share Cost": ColumnFormatter("Cost", 12, lambda entry: CellData(format_number(entry.cost_basis))),
 }
@@ -61,11 +61,12 @@ class Renderer(metaclass=utils.Singleton):
         return
 
     def render(self):
-        print()
+        """
         for graph in self.portfolio.graphs:
             graph.draw()
+        """
 
-        self.print_new_table()
+        self.print_entries()
         return
 
     def print_gains(self, format_str, gain, timespan):
@@ -120,14 +121,11 @@ class Renderer(metaclass=utils.Singleton):
         self.print_gains("{:13}", value_gained_all, "Overall")
         return
 
-    def print_new_table(self, stock_cols = list(_stock_column_formatters.keys()), portfolio_cols = list(_portfolio_column_formatters.keys())):
-        # print heading
-        print("\nPortfolio Summary:\n")
-
+    def print_entries(self, print_cols = list(_stock_column_formatters.keys()) + list(_portfolio_column_formatters.keys())):
         # print the heading
-        heading = "\t"
+        heading = "\n\t"
         divider = "\t"
-        for col in stock_cols + portfolio_cols:
+        for col in print_cols:
             column = _stock_column_formatters.get(col) or _portfolio_column_formatters.get(col)
             heading += ("{:" + str(column.width) + "}").format(column.header)
             divider += "-" * column.width
@@ -141,7 +139,7 @@ class Renderer(metaclass=utils.Singleton):
             highlight_color = Back.LIGHTBLACK_EX if i % 2 == 0 else Back.RESET
             line += highlight_color
 
-            for i, col in enumerate(stock_cols + portfolio_cols):
+            for i, col in enumerate(print_cols):
                 col_formatter = _stock_column_formatters.get(col) 
                 
                 is_stock = col_formatter != None
