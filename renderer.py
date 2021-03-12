@@ -18,24 +18,40 @@ class ColumnFormatter:
     header: str
     width: int
 
-    # function that takes a stock and generates the cell data for this column
-    # generator: Callable[[portfolio.Stock], CellData] = None
-    generator: Callable[[object], CellData] = None
+    # function that takes a thing and produces a printable string for it
+    generator: Callable[[object], CellData] = lambda v: CellData(str(v))
 
-table_headers = {
-    "Ticker" : ColumnFormatter("Ticker", 10, lambda stock: CellData(stock.symbol)),
-    "Current Price" : ColumnFormatter("Last", 13, lambda stock: CellData(stock.curr_value)),
-    "Daily Change Amount": ColumnFormatter("Change", 12, lambda stock: CellData(stock.change_amount)),
-    "Daily Change Percentage": ColumnFormatter("Change%", 12, lambda stock: CellData(stock.change_percentage)),
-    "Low": ColumnFormatter("Low", 13, lambda stock: CellData(stock.low)),
-    "High": ColumnFormatter("High", 13, lambda stock: CellData(stock.high)),
-    "Daily Average Price": ColumnFormatter("Daily Avg", 13, lambda stock: CellData(stock.average)),
-    "Stocks Owned": ColumnFormatter("Owned", 8, lambda entry: CellData(entry.count)),
-    "Gains per Share": ColumnFormatter("G/L/S", 12, lambda entry: CellData(entry.gains_per_share)),
-    "Current Market Value": ColumnFormatter("Mkt Value", 13, lambda entry: CellData(entry.holding_market_value)),
-    "Average Buy Price": ColumnFormatter("Buy Price", 12, lambda entry: CellData(entry.average_cost)),
-    "Total Share Gains": ColumnFormatter("G/L Total", 13, lambda entry: CellData(entry.gains)),
-    "Total Share Cost": ColumnFormatter("Cost", 13, lambda entry: CellData(entry.cost_basis)),
+    def generate_string(self, input) -> str:
+        cell_data = self.generator(input)
+        return cell_data.value
+
+def format_number(value) -> str:
+        return str(abs(utils.round_value(value, "math", 2)))
+
+def format_gl(value: float, is_currency: bool = True) -> str:
+        change_symbol = "+" if value >= 0 else "-"
+        if is_currency:
+            change_symbol += "$"
+
+        return change_symbol + format_number(value)
+
+_stock_column_formatters = {
+    "Ticker" : ColumnFormatter("Ticker", 9, lambda stock: CellData(stock.symbol)),
+    "Current Price" : ColumnFormatter("Last", 12, lambda stock: CellData(format_number(stock.curr_value))),
+    "Daily Change Amount": ColumnFormatter("Chg", 12, lambda stock: CellData(format_gl(stock.change_amount))),
+    "Daily Change Percentage": ColumnFormatter("Chg%", 10, lambda stock: CellData(format_gl(stock.change_percentage, False))),
+    "Low": ColumnFormatter("Low", 12, lambda stock: CellData(format_number(stock.low))),
+    "High": ColumnFormatter("High", 12, lambda stock: CellData(format_number(stock.high))),
+    "Daily Average Price": ColumnFormatter("Avg", 12, lambda stock: CellData(format_number(stock.average))),
+}
+
+_portfolio_column_formatters = {
+    "Stocks Owned": ColumnFormatter("Owned", 9, lambda entry: CellData(format_number(entry.count))),
+    "Gains per Share": ColumnFormatter("G/L/S", 12, lambda entry: CellData(format_gl(entry.gains_per_share))),
+    "Current Market Value": ColumnFormatter("Mkt V", 12, lambda entry: CellData(format_number(entry.holding_market_value))),
+    "Average Buy Price": ColumnFormatter("Buy", 12, lambda entry: CellData(format_number(entry.average_cost))),
+    "Total Share Gains": ColumnFormatter("G/L/T", 12, lambda entry: CellData(format_gl(entry.gains))),
+    "Total Share Cost": ColumnFormatter("Cost", 12, lambda entry: CellData(format_number(entry.cost_basis))),
 }
 
 class Renderer(metaclass=utils.Singleton):
@@ -51,12 +67,9 @@ class Renderer(metaclass=utils.Singleton):
             graph.draw()
 
         self.print_new_table()
-        # self.print_table()
         return
 
-    def format_number(self, value) -> str:
-        return str(abs(utils.round_value(value, self.mode, 2)))
-
+    """
     def print_ticker_summaries(self, format_str, table):
         for line in table:
             if line[-1] is None:
@@ -108,6 +121,7 @@ class Renderer(metaclass=utils.Singleton):
             )
         )
         return
+    """
 
     def print_gains(self, format_str, gain, timespan):
         positive_gain = gain >= 0
@@ -135,49 +149,42 @@ class Renderer(metaclass=utils.Singleton):
         print(Style.RESET_ALL, end="")
         return
 
-    def print_overall_summary(self, format_str):
+    def print_overall_summary(self):
         print(
             "\n"
             + "{:25}".format("Current Time: ")
-            + format_str.format(datetime.now().strftime("%A %b %d, %Y - %I:%M:%S %p"))
+            + "{:13}".format(datetime.now().strftime("%A %b %d, %Y - %I:%M:%S %p"))
         )
         print(
             "{:25}".format("Total Cost: ")
-            + format_str.format("$" + self.format_number(self.portfolio.cost_value))
+            + "{:13}".format("$" + format_number(self.portfolio.cost_value))
         )
         print(
             "{:25}".format("Total Value: ")
-            + format_str.format("$" + self.format_number(self.portfolio.market_value))
+            + "{:13}".format("$" + format_number(self.portfolio.market_value))
         )
 
         # print daily value
         value_gained_day = (
             self.portfolio.market_value - self.portfolio.open_market_value
         )
-        self.print_gains(format_str, value_gained_day, "Today")
+        self.print_gains("{:13}", value_gained_day, "Today")
 
         # print overall value
         value_gained_all = self.portfolio.market_value - self.portfolio.cost_value
-        self.print_gains(format_str, value_gained_all, "Overall")
+        self.print_gains("{:13}", value_gained_all, "Overall")
         return
 
-    def format_gl(self, value: float, is_currency: bool) -> str:
-        change_symbol = "+" if value >= 0 else "-"
-        if is_currency:
-            change_symbol += "$"
-
-        return change_symbol + self.format_number(value)
-
-    def print_new_table(self):
+    def print_new_table(self, stock_cols = list(_stock_column_formatters.keys()), portfolio_cols = list(_portfolio_column_formatters.keys())):
         # print heading
         print("\nPortfolio Summary:\n")
 
         # print the heading
         heading = "\t"
         divider = "\t"
-        for column in table_headers.values():
-            col_format = "{:" + str(column.width) + "}"
-            heading += col_format.format(column.header)
+        for col in stock_cols + portfolio_cols:
+            column = _stock_column_formatters.get(col) or _portfolio_column_formatters.get(col)
+            heading += ("{:" + str(column.width) + "}").format(column.header)
             divider += "-" * column.width
         print(heading + "\n" + divider)
 
@@ -186,69 +193,16 @@ class Renderer(metaclass=utils.Singleton):
             line = "\t"
             stock = entry.stock
             
-            col_formatter = table_headers["Ticker"]
-            curr_format = "{:" + str(table_headers["Ticker"].width) + "}"
-            line += curr_format.format(col_formatter.generator(stock).value)
+            for i, col in enumerate(stock_cols + portfolio_cols):
+                col_formatter = _stock_column_formatters.get(col) 
+                
+                is_stock = col_formatter != None
+                if not is_stock:
+                    col_formatter = _portfolio_column_formatters.get(col)
+                line += ("{:" + str(col_formatter.width) + "}").format(col_formatter.generate_string(stock if is_stock else entry))
 
+            # print the entry
             print(line)
 
-
-
+        self.print_overall_summary()        
         return
-
-    def print_table(self):
-        table = [
-            [
-                "Ticker",
-                "Last",
-                "Change",
-                "Change%",
-                "Low",
-                "High",
-                "Daily Avg",
-                "Owned",
-                "G/L/S",
-                "Mkt Value",
-                "Avg Share",
-                "G/L Total",
-                "Total Cost",
-                None,
-            ]
-        ]
-        table.append(
-            ["-" * self.cell_width for _ in range(len(table[0]) - 1)]
-        )  # this is the solid line under the header
-        table[-1].append(None)  # make sure that solid line is not colored
-
-        for entry in self.portfolio.stocks.values():
-            stock = entry.stock
-
-            line = []
-            line.append(stock.symbol)
-            line.append("$" + self.format_number(stock.curr_value))
-
-            # change stats
-            line.append(self.format_gl(stock.change_amount, True))
-            line.append(self.format_gl(stock.change_percentage, False) + "%")
-
-            line.append("$" + self.format_number(stock.low))
-            line.append("$" + self.format_number(stock.high))
-            line.append("$" + self.format_number(stock.average))
-
-            line.append(self.format_number(entry.count))
-            line.append(self.format_gl(entry.gains_per_share, True))
-            line.append("$" + self.format_number(entry.holding_market_value))
-            line.append(self.format_number(entry.average_cost))
-            line.append(self.format_gl(entry.gains, True))
-
-            # total cost of shares
-            line.append("$" + self.format_number(entry.cost_basis))
-            line.append(True if stock.change_amount >= 0 else False)
-            table.append(line)
-
-        # generate ticker daily summary
-        print("\nPortfolio Summary:\n")
-        format_str = "{:" + str(self.cell_width) + "}"
-        self.print_ticker_summaries(format_str, table)
-
-        self.print_overall_summary(format_str)
