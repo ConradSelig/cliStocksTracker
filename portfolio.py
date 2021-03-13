@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 @dataclass
 class Stock:
     symbol: str
-    data: list
+    data: list = (0)
 
     def __post_init__(self):
         self.curr_value = self.data[-1]
@@ -25,15 +25,17 @@ class Stock:
         self.low = min(self.data)
         self.average = sum(self.data) / len(self.data)
         self.change_amount = self.curr_value - self.open_value
-        self.change_percentage = (self.change_amount / self.curr_value) * 100
+        self.change_percentage = (self.change_amount / self.curr_value) * 100 if self.curr_value > 0 else 0
         return
 
+    def reinit(self):
+        self.__post_init__()
 
 @dataclass
 class PortfolioEntry:
     stock: Stock
-    count: float
-    average_cost: float
+    count: float = 0
+    average_cost: float = 0
     graph: bool = False
     color: str = None
 
@@ -45,23 +47,66 @@ class PortfolioEntry:
         self.gains_per_share = self.gains / self.count if self.count > 0 else 0
         return
 
+    def process_transaction(self, ttype, count, cost):
+        if ttype == "buy":
+            self.count += count
+            self.average_cost = (self.cost_basis + cost) / 2
+        else:
+            self.count -= count
+            # TODO: track gains/losses
+        self.__post_init__()
+
 
 class Portfolio(metaclass=utils.Singleton):
     def __init__(self, *args, **kwargs):
         self.stocks = {}
 
-        self.open_market_value = 0  # portfolio worth at market open
-        self.cost_value = (
-            0  # amount invested into the portfolio (sum of cost of shares)
-        )
-        self.market_value = 0  # current market value of shares
+        # portfolio worth at market open
+        self.open_market_value = 0
+        # amount invested into the portfolio (sum of cost of share cost)
+        self.cost_value = 0
+        self.market_value = 0
         return
 
-    def add_entry(
-        self, stock: Stock, count: float, bought_at: float, color: str, graph: bool
-    ):
-        entry = PortfolioEntry(stock, count, bought_at, graph, color)
-        self.stocks[stock.symbol] = entry
+    # TODO: clean this up
+    def _upsert_entry(
+        self,
+        ticker: str,
+        data: list = (0), 
+        ttype: str = None,
+        count: float = 0, 
+        bought_at: float = 0, 
+        color: str = None, 
+        graph: bool = False
+        ):
+        entry = self.get_stock(ticker)
+
+        # update existing entry
+        if (entry != None):
+            # clear portfolio data so we can recalc -- TODO: clean this up
+            self.open_market_value -= entry.holding_open_value
+            self.market_value -= entry.holding_market_value
+            self.cost_value -= entry.cost_basis
+
+            entry.stock.data = data
+            if (ttype == "tick_update"):
+                entry.stock.reinit()
+
+            entry.color = color
+            entry.graph = graph
+
+            entry.process_transaction(ttype, count, bought_at)
+
+            # update portfolio values
+            self.open_market_value += entry.holding_open_value
+            self.market_value += entry.holding_market_value
+            self.cost_value += entry.cost_basis
+
+            return
+
+        # insert new entry
+        entry = PortfolioEntry(Stock(ticker, data), count, bought_at, graph, color)
+        self.stocks[ticker] = entry
 
         self.open_market_value += entry.holding_open_value
         self.market_value += entry.holding_market_value
@@ -71,8 +116,8 @@ class Portfolio(metaclass=utils.Singleton):
     def get_stocks(self):
         return self.stocks
 
-    def get_stock(self, symbol):
-        return self.stocks[symbol]
+    def get_stock(self, symbol) -> PortfolioEntry:
+        return self.stocks.get(symbol)
 
     def average_buyin(self, buys: list, sells: list):
         buy_c, buy_p, sell_c, sell_p, count, bought_at = 0, 0, 0, 0, 0, 0
@@ -107,42 +152,8 @@ class Portfolio(metaclass=utils.Singleton):
 
         return count, bought_at
 
-    # download all ticker data in a single request
-    # harder to parse but this provides a signficant performance boost
-    def download_market_data(self, args, stocks):
-        # get graph time interval and period
-        time_period = args.time_period if args.time_period else "1d"
-        time_interval = args.time_interval if args.time_interval else "1m"
-
-        try:
-            return market.download(
-                tickers=stocks,
-                period=time_period,
-                interval=time_interval,
-                progress=True,
-            )
-        except:
-            print(
-                "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
-            )
-
-    def populate(self, stocks_config, args):
-        # download all stock data
-        print(Fore.GREEN, end="")
-        market_data = self.download_market_data(args, stocks_config.sections())
-        print(Style.RESET_ALL)
-
-        # iterate through each ticker data
-        data_key = "Open"
-        for td in market_data[[data_key]]:
-            ticker = td[1]
-
-            # convert the numpy array into a list of prices while removing NaN values
-            data = market_data[data_key][ticker].values[
-                ~np.isnan(market_data[data_key][ticker].values)
-            ]
-            new_stock = Stock(ticker, data)
-
+    def load_from_config(self, stocks_config):
+        for ticker in stocks_config.sections():
             # calculate average buy in
             buyin = (
                 stocks_config[ticker]["buy"]
@@ -163,31 +174,48 @@ class Portfolio(metaclass=utils.Singleton):
                 else None
             )
 
-            # Check that the stock color that was entered is legal
-            colorWarningFlag = True
-            if color == None:
-                colorWarningFlag = False
-            elif type(color) == str:
-                if (color.startswith("#")) or (
-                    color in webcolors.CSS3_NAMES_TO_HEX.keys()
-                ):
-                    colorWarningFlag = False
-
-            if colorWarningFlag:
-                warnings.warn(
-                    "The color selected for "
-                    + ticker
-                    + " is not in not in the approved list. Automatic color selection will be used."
-                )
-                color = None
-
             should_graph = (
                 "graph" in list(stocks_config[ticker].keys())
                 and stocks_config[ticker]["graph"] == "True"
             )
 
-            # finally, add the stock to the portfolio
-            self.add_entry(new_stock, count, bought_at, color, should_graph)
+            self._upsert_entry(ticker, [0], "buy", count, bought_at, color, should_graph)
+
+        return
+
+    # download all ticker data in a single request
+    # harder to parse but this provides a signficant performance boost
+    def download_market_data(self, args, stocks):
+        # get graph time interval and period
+        time_period = args.time_period if args.time_period else "1d"
+        time_interval = args.time_interval if args.time_interval else "1m"
+
+        try:
+            return market.download(
+                tickers=stocks,
+                period=time_period,
+                interval=time_interval,
+                progress=True,
+            )
+        except:
+            print(
+                "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
+            )
+
+    def market_sync(self, stock_list, args):
+        # download all stock data
+        print(Fore.GREEN, end="")
+        market_data = self.download_market_data(args, stock_list)
+        print(Style.RESET_ALL)
+
+        # iterate through each ticker data
+        data_key = "Open"
+        for ticker in stock_list:
+            # convert the numpy array into a list of prices while removing NaN values
+            data = market_data[data_key][ticker].values[
+                ~np.isnan(market_data[data_key][ticker].values)
+            ]
+            self._upsert_entry(ticker, data, "tick_update")
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []

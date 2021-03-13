@@ -46,10 +46,14 @@ def main():
 
     # populate portfolio
     portfolio = port.Portfolio()
-    portfolio.populate(stocks_config, args)
+    portfolio.load_from_config(stocks_config)
+    portfolio.market_sync(stocks_config.sections(), args)
+
+    """
     portfolio.gen_graphs(
         args.independent_graphs, args.width, args.height, args.timezone
     )
+    """
 
     # print to the screen
     render_engine = Renderer(args.rounding_mode, portfolio)
