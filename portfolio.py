@@ -11,6 +11,14 @@ import yfinance as market
 from colorama import Fore, Style
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum, auto
+
+@dataclass 
+class TransactionType(Enum):
+    NONE = auto()
+    BUY = auto(),
+    SELL = auto(),
+    MARKET_SYNC = auto()
 
 
 @dataclass
@@ -18,6 +26,7 @@ class Stock:
     symbol: str
     data: list = (0)
 
+    # TODO: better error handling on stocks not found
     def __post_init__(self):
         self.curr_value = self.data[-1]
         self.open_value = self.data[0]
@@ -30,6 +39,7 @@ class Stock:
 
     def reinit(self):
         self.__post_init__()
+
 
 @dataclass
 class PortfolioEntry:
@@ -47,13 +57,16 @@ class PortfolioEntry:
         self.gains_per_share = self.gains / self.count if self.count > 0 else 0
         return
 
-    def process_transaction(self, ttype, count, cost):
-        if ttype == "buy":
+    def process_transaction(self, ttype: TransactionType, count: float, cost: float, data: list):
+        if ttype is TransactionType.BUY:
             self.count += count
             self.average_cost = (self.cost_basis + cost) / 2
-        else:
+        elif ttype is TransactionType.SELL:
             self.count -= count
-            # TODO: track gains/losses
+        elif ttype is TransactionType.MARKET_SYNC:
+            self.stock.data = data
+            self.stock.reinit()
+
         self.__post_init__()
 
 
@@ -68,43 +81,59 @@ class Portfolio(metaclass=utils.Singleton):
         self.market_value = 0
         return
 
-    # TODO: clean this up
+    # TODO: clean this up -- better as separate market update function?
+    # TODO: remove graph and color from here?
     def _upsert_entry(
-        self,
-        ticker: str,
-        data: list = (0), 
-        ttype: str = None,
-        count: float = 0, 
-        bought_at: float = 0, 
-        color: str = None, 
-        graph: bool = False
-        ):
+            self,
+            ticker: str,            
+            data: list = (0), 
+            ttype: TransactionType = TransactionType.NONE,
+            count: float = 0, 
+            bought_at: float = 0, 
+            color: str = None, 
+            graph: bool = False):
+        # first see if it's an existing entry we can update
         entry = self.get_stock(ticker)
-
-        # update existing entry
         if (entry != None):
             # clear portfolio data so we can recalc -- TODO: clean this up
             self.open_market_value -= entry.holding_open_value
             self.market_value -= entry.holding_market_value
             self.cost_value -= entry.cost_basis
 
-            entry.stock.data = data
-            if (ttype == "tick_update"):
-                entry.stock.reinit()
-
-            entry.color = color
-            entry.graph = graph
-
-            entry.process_transaction(ttype, count, bought_at)
+            entry.color = entry.color if ttype == TransactionType.MARKET_SYNC else color
+            entry.graph = entry.graph if ttype == TransactionType.MARKET_SYNC else graph
+            entry.process_transaction(ttype, count, bought_at, data)
 
             # update portfolio values
             self.open_market_value += entry.holding_open_value
             self.market_value += entry.holding_market_value
             self.cost_value += entry.cost_basis
-
             return
 
         # insert new entry
+        self._add_new_entry(ticker, data, count, bought_at, color, graph)
+        return
+
+    def _remove_entry(self, ticker: str):
+        entry = self.get_stock(ticker)
+        if (entry == None):
+            return
+
+        # remove entries effect on portoflio
+        self.open_market_value -= entry.holding_open_value
+        self.market_value -= entry.holding_market_value
+        self.cost_value -= entry.cost_basis
+
+        del self.stocks
+
+    def _add_new_entry(
+            self, 
+            ticker: str,
+            data: list, 
+            count: float, 
+            bought_at: float, 
+            color: str, 
+            graph: bool):
         entry = PortfolioEntry(Stock(ticker, data), count, bought_at, graph, color)
         self.stocks[ticker] = entry
 
@@ -179,13 +208,15 @@ class Portfolio(metaclass=utils.Singleton):
                 and stocks_config[ticker]["graph"] == "True"
             )
 
-            self._upsert_entry(ticker, [0], "buy", count, bought_at, color, should_graph)
+            self._upsert_entry(ticker, [0], TransactionType.BUY, count, bought_at, color, should_graph)
 
         return
 
-    # download all ticker data in a single request
-    # harder to parse but this provides a signficant performance boost
-    def download_market_data(self, args, stocks):
+    """
+    download all ticker data in a single request
+    harder to parse but this provides a signficant performance boost
+    """
+    def _download_market_data(self, args, stocks):
         # get graph time interval and period
         time_period = args.time_period if args.time_period else "1d"
         time_interval = args.time_interval if args.time_interval else "1m"
@@ -198,24 +229,28 @@ class Portfolio(metaclass=utils.Singleton):
                 progress=True,
             )
         except:
-            print(
-                "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
-            )
+            print(Fore.RED, "Failed to download market data", Style.RESET_ALL)
 
-    def market_sync(self, stock_list, args):
+    def market_sync(self, args, stock_list = ()):
+        # TODO: better error handling
+        if (not stock_list):
+            print("No tickers supplied - default to existing entries")
+            stock_list = list(self.stocks.keys())
+
         # download all stock data
         print(Fore.GREEN, end="")
-        market_data = self.download_market_data(args, stock_list)
+        market_data = self._download_market_data(args, stock_list)
         print(Style.RESET_ALL)
 
         # iterate through each ticker data
+         # TODO: add error handling to stocks not found
         data_key = "Open"
         for ticker in stock_list:
             # convert the numpy array into a list of prices while removing NaN values
             data = market_data[data_key][ticker].values[
                 ~np.isnan(market_data[data_key][ticker].values)
             ]
-            self._upsert_entry(ticker, data, "tick_update")
+            self._upsert_entry(ticker, data, TransactionType.MARKET_SYNC)
 
     def gen_graphs(self, independent_graphs, graph_width, graph_height, cfg_timezone):
         graphs = []

@@ -47,38 +47,18 @@ def main():
     # populate portfolio
     portfolio = port.Portfolio()
     portfolio.load_from_config(stocks_config)
-    portfolio.market_sync(stocks_config.sections(), args)
-
-    """
-    portfolio.gen_graphs(
-        args.independent_graphs, args.width, args.height, args.timezone
-    )
-    """
+    portfolio.market_sync(args)
 
     # print to the screen
     render_engine = Renderer(args.rounding_mode, portfolio)
     render_engine.render()
 
     """
-    print(Fore.CYAN)
-    line_start = "="
-    for i in range(0, 10):
-        line_start += "="
-        print(line_start, end="", flush=True)
-        time.sleep(.1)
-
-    print('\r\r\r' + Fore.YELLOW, end='')
-    line_start = "*"
-    for i in range(0, 10):
-        line_start += "*"
-        print(line_start, end="", flush=True)
-        time.sleep(.1)
-    print(Style.RESET_ALL)
-
-    print(Fore.MAGENTA + "{:25}".format("==="), end="")
-    print("\r" + Fore.BLUE + "{:25}".format("="), end="")
+    portfolio.gen_graphs(
+        args.independent_graphs, args.width, args.height, args.timezone
+    )
     """
-
+    
     return
 
 
