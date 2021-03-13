@@ -1,19 +1,15 @@
 import pytz
-import utils
 import plotille
 import warnings
 import argparse
-import webcolors
-import autocolors
 import contextlib
 import multiconfigparser
+import time
 
-import numpy as np
-import yfinance as market
 import portfolio as port
 
-from datetime import datetime, timedelta
-from renderer import Renderer
+from colorama import Fore, Style
+from ui.renderer import Renderer
 
 
 def merge_config(config, args):
@@ -39,8 +35,6 @@ def main():
     stocks_config = multiconfigparser.ConfigParserMultiOpt()
     args = parse_args()
 
-    portfolio = port.Portfolio()
-
     # read config files
     config.read(args.config)
     stocks_config.read(args.portfolio_config)
@@ -50,6 +44,8 @@ def main():
     verify_stock_keys(stocks_config)
     merge_config(config, args)
 
+    # populate portfolio
+    portfolio = port.Portfolio()
     portfolio.populate(stocks_config, args)
     portfolio.gen_graphs(
         args.independent_graphs, args.width, args.height, args.timezone
@@ -58,6 +54,26 @@ def main():
     # print to the screen
     render_engine = Renderer(args.rounding_mode, portfolio)
     render_engine.render()
+
+    """
+    print(Fore.CYAN)
+    line_start = "="
+    for i in range(0, 10):
+        line_start += "="
+        print(line_start, end="", flush=True)
+        time.sleep(.1)
+
+    print('\r\r\r' + Fore.YELLOW, end='')
+    line_start = "*"
+    for i in range(0, 10):
+        line_start += "*"
+        print(line_start, end="", flush=True)
+        time.sleep(.1)
+    print(Style.RESET_ALL)
+
+    print(Fore.MAGENTA + "{:25}".format("==="), end="")
+    print("\r" + Fore.BLUE + "{:25}".format("="), end="")
+    """
 
     return
 
@@ -121,7 +137,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-
+# TODO: Remove
 def verify_stock_keys(stocks_config):
     # check that at least one stock is in portfolio.ini
     if list(stocks_config.keys()) == ["DEFAULT"]:

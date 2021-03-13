@@ -151,7 +151,7 @@ class Renderer(metaclass=utils.Singleton):
 
             # print the entry
             line += Style.RESET_ALL
-            print(line)
+            print(line, flush = True)
 
         # TODO: print totals line
         

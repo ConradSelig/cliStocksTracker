@@ -8,6 +8,7 @@ import autocolors
 import numpy as np
 import yfinance as market
 
+from colorama import Fore, Style
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -41,7 +42,7 @@ class PortfolioEntry:
         self.holding_open_value = self.stock.open_value * self.count
         self.cost_basis = self.count * self.average_cost
         self.gains = self.holding_market_value - self.cost_basis
-        self.gains_per_share = self.gains / self.count
+        self.gains_per_share = self.gains / self.count if self.count > 0 else 0
         return
 
 
@@ -127,7 +128,9 @@ class Portfolio(metaclass=utils.Singleton):
 
     def populate(self, stocks_config, args):
         # download all stock data
+        print(Fore.GREEN, end="")
         market_data = self.download_market_data(args, stocks_config.sections())
+        print(Style.RESET_ALL)
 
         # iterate through each ticker data
         data_key = "Open"
