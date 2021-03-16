@@ -126,14 +126,22 @@ class Portfolio(metaclass=utils.Singleton):
             )
 
     def populate(self, stocks_config, args):
+        # temp workaround for different data format depending on number of stocks being queried
+        sections = stocks_config.sections()
+        singleWorkaround = False
+        if (len(sections) == 1):
+            sections.append('foo')
+            singleWorkaround = True
+
         # download all stock data
-        market_data = self.download_market_data(args, stocks_config.sections())
+        market_data = self.download_market_data(args, sections)
+
+        if (singleWorkaround):
+            sections.pop()
 
         # iterate through each ticker data
         data_key = "Open"
-        for td in market_data[[data_key]]:
-            ticker = td[1]
-
+        for ticker in sections:
             # convert the numpy array into a list of prices while removing NaN values
             data = market_data[data_key][ticker].values[
                 ~np.isnan(market_data[data_key][ticker].values)
