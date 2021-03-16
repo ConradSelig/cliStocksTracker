@@ -13,6 +13,7 @@ class CellData:
     value: str
     color: str = Fore.RESET
 
+
 @dataclass
 class ColumnFormatter:
     header: str
@@ -25,34 +26,81 @@ class ColumnFormatter:
         cell_data = self.generator(input)
         return cell_data.value
 
+
 def format_number(value) -> str:
-        return str(abs(utils.round_value(value, "math", 2)))
+    return str(abs(utils.round_value(value, "math", 2)))
+
 
 def format_gl(value: float, is_currency: bool = True) -> str:
-        change_symbol = "+" if value >= 0 else "-"
-        if is_currency:
-            change_symbol += "$"
+    change_symbol = "+" if value >= 0 else "-"
+    if is_currency:
+        change_symbol += "$"
 
-        return change_symbol + format_number(value)
+    return change_symbol + format_number(value)
+
 
 _stock_column_formatters = {
-    "Ticker" : ColumnFormatter("Ticker", 9, lambda stock: CellData(stock.symbol)),
-    "Current Price" : ColumnFormatter("Last", 12, lambda stock: CellData(format_number(stock.curr_value))),
-    "Daily Change Amount": ColumnFormatter("Chg", 12, lambda stock: CellData(format_gl(stock.change_amount), Fore.GREEN if stock.change_amount >= 0 else Fore.RED)),
-    "Daily Change Percentage": ColumnFormatter("Chg%", 10, lambda stock: CellData(format_gl(stock.change_percentage, Fore.GREEN if stock.change_percentage >= 0 else Fore.RED))),
+    "Ticker": ColumnFormatter("Ticker", 9, lambda stock: CellData(stock.symbol)),
+    "Current Price": ColumnFormatter(
+        "Last", 12, lambda stock: CellData(format_number(stock.curr_value))
+    ),
+    "Daily Change Amount": ColumnFormatter(
+        "Chg",
+        12,
+        lambda stock: CellData(
+            format_gl(stock.change_amount),
+            Fore.GREEN if stock.change_amount >= 0 else Fore.RED,
+        ),
+    ),
+    "Daily Change Percentage": ColumnFormatter(
+        "Chg%",
+        10,
+        lambda stock: CellData(
+            format_gl(
+                stock.change_percentage,
+                Fore.GREEN if stock.change_percentage >= 0 else Fore.RED,
+            )
+        ),
+    ),
     "Low": ColumnFormatter("Low", 12, lambda stock: CellData(format_number(stock.low))),
-    "High": ColumnFormatter("High", 12, lambda stock: CellData(format_number(stock.high))),
-    "Daily Average Price": ColumnFormatter("Avg", 12, lambda stock: CellData(format_number(stock.average))),
+    "High": ColumnFormatter(
+        "High", 12, lambda stock: CellData(format_number(stock.high))
+    ),
+    "Daily Average Price": ColumnFormatter(
+        "Avg", 12, lambda stock: CellData(format_number(stock.average))
+    ),
 }
 
 _portfolio_column_formatters = {
-    "Stocks Owned": ColumnFormatter("Owned", 9, lambda entry: CellData(format_number(entry.count))),
-    "Gains per Share": ColumnFormatter("G/L/S", 12, lambda entry: CellData(format_gl(entry.gains_per_share), Fore.GREEN if entry.gains_per_share >= 0 else Fore.RED)),
-    "Current Market Value": ColumnFormatter("Mkt V", 12, lambda entry: CellData(format_number(entry.holding_market_value))),
-    "Average Buy Price": ColumnFormatter("Buy", 12, lambda entry: CellData(format_number(entry.average_cost))),
-    "Total Share Gains": ColumnFormatter("G/L/T", 12, lambda entry: CellData(format_gl(entry.gains), Fore.GREEN if entry.gains >= 0 else Fore.RED)),
-    "Total Share Cost": ColumnFormatter("Cost", 12, lambda entry: CellData(format_number(entry.cost_basis))),
+    "Stocks Owned": ColumnFormatter(
+        "Owned", 9, lambda entry: CellData(format_number(entry.count))
+    ),
+    "Gains per Share": ColumnFormatter(
+        "G/L/S",
+        12,
+        lambda entry: CellData(
+            format_gl(entry.gains_per_share),
+            Fore.GREEN if entry.gains_per_share >= 0 else Fore.RED,
+        ),
+    ),
+    "Current Market Value": ColumnFormatter(
+        "Mkt V", 12, lambda entry: CellData(format_number(entry.holding_market_value))
+    ),
+    "Average Buy Price": ColumnFormatter(
+        "Buy", 12, lambda entry: CellData(format_number(entry.average_cost))
+    ),
+    "Total Share Gains": ColumnFormatter(
+        "G/L/T",
+        12,
+        lambda entry: CellData(
+            format_gl(entry.gains), Fore.GREEN if entry.gains >= 0 else Fore.RED
+        ),
+    ),
+    "Total Share Cost": ColumnFormatter(
+        "Cost", 12, lambda entry: CellData(format_number(entry.cost_basis))
+    ),
 }
+
 
 class Renderer(metaclass=utils.Singleton):
     def __init__(self, rounding: str, portfolio: portfolio.Portfolio, *args, **kwargs):
@@ -120,7 +168,11 @@ class Renderer(metaclass=utils.Singleton):
         self.print_gains("{:13}", value_gained_all, "Overall")
         return
 
-    def print_new_table(self, stock_cols = list(_stock_column_formatters.keys()), portfolio_cols = list(_portfolio_column_formatters.keys())):
+    def print_new_table(
+        self,
+        stock_cols=list(_stock_column_formatters.keys()),
+        portfolio_cols=list(_portfolio_column_formatters.keys()),
+    ):
         # print heading
         print("\nPortfolio Summary:\n")
 
@@ -128,7 +180,9 @@ class Renderer(metaclass=utils.Singleton):
         heading = "\t"
         divider = "\t"
         for col in stock_cols + portfolio_cols:
-            column = _stock_column_formatters.get(col) or _portfolio_column_formatters.get(col)
+            column = _stock_column_formatters.get(
+                col
+            ) or _portfolio_column_formatters.get(col)
             heading += ("{:" + str(column.width) + "}").format(column.header)
             divider += "-" * column.width
         print(heading + "\n" + divider)
@@ -142,20 +196,22 @@ class Renderer(metaclass=utils.Singleton):
             line += highlight_color
 
             for i, col in enumerate(stock_cols + portfolio_cols):
-                col_formatter = _stock_column_formatters.get(col) 
-                
+                col_formatter = _stock_column_formatters.get(col)
+
                 is_stock = col_formatter != None
                 if not is_stock:
                     col_formatter = _portfolio_column_formatters.get(col)
 
                 cell_data = col_formatter.generator(stock if is_stock else entry)
-                line += cell_data.color + ("{:" + str(col_formatter.width) + "}").format(cell_data.value)
+                line += cell_data.color + (
+                    "{:" + str(col_formatter.width) + "}"
+                ).format(cell_data.value)
 
             # print the entry
             line += Style.RESET_ALL
             print(line)
 
         # TODO: print totals line
-        
-        self.print_overall_summary()        
+
+        self.print_overall_summary()
         return

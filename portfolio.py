@@ -129,14 +129,14 @@ class Portfolio(metaclass=utils.Singleton):
         # temp workaround for different data format depending on number of stocks being queried
         sections = stocks_config.sections()
         singleWorkaround = False
-        if (len(sections) == 1):
-            sections.append('foo')
+        if len(sections) == 1:
+            sections.append("foo")
             singleWorkaround = True
 
         # download all stock data
         market_data = self.download_market_data(args, sections)
 
-        if (singleWorkaround):
+        if singleWorkaround:
             sections.pop()
 
         # iterate through each ticker data
