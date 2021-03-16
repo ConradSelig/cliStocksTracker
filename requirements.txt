@@ -1,7 +1,7 @@
-plotille>=3.7.2
-numpy>=1.19.5
-yfinance>=0.1.55
-pytz>=2021.1
-colorama>=0.4.4
+colorama==0.4.4
+numpy==1.20.1
+plotille==3.7.2
+pytz==2021.1
 webcolors==1.11.1
-matplotlib>=3.3.4
+yfinance==0.1.55
+dataclasses==0.8
