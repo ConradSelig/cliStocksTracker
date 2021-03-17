@@ -240,7 +240,7 @@ class Portfolio(metaclass=utils.Singleton):
         # temp workaround for different data format depending on number of stocks being queried
         singleWorkaround = False
         if len(stock_list) == 1:
-            sections.append("foo")
+            stock_list.append("foo")
             singleWorkaround = True
 
         # download all stock data
@@ -249,7 +249,7 @@ class Portfolio(metaclass=utils.Singleton):
         print(Style.RESET_ALL)
 
         if singleWorkaround:
-            sections.pop()
+            stock_list.pop()
 
         # iterate through each ticker data
          # TODO: add error handling to stocks not found
