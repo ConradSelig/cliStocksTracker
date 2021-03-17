@@ -236,11 +236,20 @@ class Portfolio(metaclass=utils.Singleton):
         if (not stock_list):
             print("No tickers supplied - default to existing entries")
             stock_list = list(self.stocks.keys())
+            
+        # temp workaround for different data format depending on number of stocks being queried
+        singleWorkaround = False
+        if len(stock_list) == 1:
+            sections.append("foo")
+            singleWorkaround = True
 
         # download all stock data
         print(Fore.GREEN, end="")
         market_data = self._download_market_data(args, stock_list)
         print(Style.RESET_ALL)
+
+        if singleWorkaround:
+            sections.pop()
 
         # iterate through each ticker data
          # TODO: add error handling to stocks not found

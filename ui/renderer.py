@@ -152,29 +152,7 @@ class Renderer(metaclass=utils.Singleton):
             # print the entry
             line += Style.RESET_ALL
             print(line, flush = True)
-
-        # TODO: print totals line
-        
+            
         self.print_overall_summary()
-
-        """
-        print(Fore.CYAN)
-        line_start = "="
-        for i in range(0, 10):
-            line_start += "="
-            print(line_start, end="", flush=True)
-            time.sleep(.1)
-
-        print('\r\r\r' + Fore.YELLOW, end='')
-        line_start = "*"
-        for i in range(0, 10):
-            line_start += "*"
-            print(line_start, end="", flush=True)
-            time.sleep(.1)
-        print(Style.RESET_ALL)
-
-        print(Fore.MAGENTA + "{:25}".format("==="), end="")
-        print("\r" + Fore.BLUE + "{:25}".format("="), end="")
-        """
 
         return
