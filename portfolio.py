@@ -13,18 +13,19 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 
-@dataclass 
+
+@dataclass
 class TransactionType(Enum):
     NONE = auto()
-    BUY = auto(),
-    SELL = auto(),
+    BUY = (auto(),)
+    SELL = (auto(),)
     MARKET_SYNC = auto()
 
 
 @dataclass
 class Stock:
     symbol: str
-    data: list = (0)
+    data: list = 0
 
     # TODO: better error handling on stocks not found
     def __post_init__(self):
@@ -34,7 +35,9 @@ class Stock:
         self.low = min(self.data)
         self.average = sum(self.data) / len(self.data)
         self.change_amount = self.curr_value - self.open_value
-        self.change_percentage = (self.change_amount / self.curr_value) * 100 if self.curr_value > 0 else 0
+        self.change_percentage = (
+            (self.change_amount / self.curr_value) * 100 if self.curr_value > 0 else 0
+        )
         return
 
     def reinit(self):
@@ -57,7 +60,9 @@ class PortfolioEntry:
         self.gains_per_share = self.gains / self.count if self.count > 0 else 0
         return
 
-    def process_transaction(self, ttype: TransactionType, count: float, cost: float, data: list):
+    def process_transaction(
+        self, ttype: TransactionType, count: float, cost: float, data: list
+    ):
         if ttype is TransactionType.BUY:
             self.count += count
             self.average_cost = (self.cost_basis + cost) / 2
@@ -84,17 +89,18 @@ class Portfolio(metaclass=utils.Singleton):
     # TODO: clean this up -- better as separate market update function?
     # TODO: remove graph and color from here?
     def _upsert_entry(
-            self,
-            ticker: str,            
-            data: list = (0), 
-            ttype: TransactionType = TransactionType.NONE,
-            count: float = 0, 
-            bought_at: float = 0, 
-            color: str = None, 
-            graph: bool = False):
+        self,
+        ticker: str,
+        data: list = (0),
+        ttype: TransactionType = TransactionType.NONE,
+        count: float = 0,
+        bought_at: float = 0,
+        color: str = None,
+        graph: bool = False,
+    ):
         # first see if it's an existing entry we can update
         entry = self.get_stock(ticker)
-        if (entry != None):
+        if entry != None:
             # clear portfolio data so we can recalc -- TODO: clean this up
             self.open_market_value -= entry.holding_open_value
             self.market_value -= entry.holding_market_value
@@ -116,7 +122,7 @@ class Portfolio(metaclass=utils.Singleton):
 
     def _remove_entry(self, ticker: str):
         entry = self.get_stock(ticker)
-        if (entry == None):
+        if entry == None:
             return
 
         # remove entries effect on portoflio
@@ -127,13 +133,14 @@ class Portfolio(metaclass=utils.Singleton):
         del self.stocks
 
     def _add_new_entry(
-            self, 
-            ticker: str,
-            data: list, 
-            count: float, 
-            bought_at: float, 
-            color: str, 
-            graph: bool):
+        self,
+        ticker: str,
+        data: list,
+        count: float,
+        bought_at: float,
+        color: str,
+        graph: bool,
+    ):
         entry = PortfolioEntry(Stock(ticker, data), count, bought_at, graph, color)
         self.stocks[ticker] = entry
 
@@ -208,7 +215,9 @@ class Portfolio(metaclass=utils.Singleton):
                 and stocks_config[ticker]["graph"] == "True"
             )
 
-            self._upsert_entry(ticker, [0], TransactionType.BUY, count, bought_at, color, should_graph)
+            self._upsert_entry(
+                ticker, [0], TransactionType.BUY, count, bought_at, color, should_graph
+            )
 
         return
 
@@ -216,6 +225,7 @@ class Portfolio(metaclass=utils.Singleton):
     download all ticker data in a single request
     harder to parse but this provides a signficant performance boost
     """
+
     def _download_market_data(self, args, stocks):
         # get graph time interval and period
         time_period = args.time_period if args.time_period else "1d"
@@ -231,12 +241,12 @@ class Portfolio(metaclass=utils.Singleton):
         except:
             print(Fore.RED, "Failed to download market data", Style.RESET_ALL)
 
-    def market_sync(self, args, stock_list = ()):
+    def market_sync(self, args, stock_list=()):
         # TODO: better error handling
-        if (not stock_list):
+        if not stock_list:
             print("No tickers supplied - default to existing entries")
             stock_list = list(self.stocks.keys())
-            
+
         # temp workaround for different data format depending on number of stocks being queried
         singleWorkaround = False
         if len(stock_list) == 1:
@@ -252,7 +262,7 @@ class Portfolio(metaclass=utils.Singleton):
             stock_list.pop()
 
         # iterate through each ticker data
-         # TODO: add error handling to stocks not found
+        # TODO: add error handling to stocks not found
         data_key = "Open"
         for ticker in stock_list:
             # convert the numpy array into a list of prices while removing NaN values
