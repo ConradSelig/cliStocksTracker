@@ -61,10 +61,8 @@ class Renderer(metaclass=utils.Singleton):
         return
 
     def render(self):
-        """
         for graph in self.portfolio.graphs:
             graph.draw()
-        """
 
         self.print_entries()
         return

@@ -49,15 +49,13 @@ def main():
     portfolio.load_from_config(stocks_config)
     portfolio.market_sync(args)
 
-    # print to the screen
-    render_engine = Renderer(args.rounding_mode, portfolio)
-    render_engine.render()
-
-    """
     portfolio.gen_graphs(
         args.independent_graphs, args.width, args.height, args.timezone
     )
-    """
+
+    # print to the screen
+    render_engine = Renderer(args.rounding_mode, portfolio)
+    render_engine.render()
     
     return
 
