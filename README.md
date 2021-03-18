@@ -2,6 +2,7 @@
 [![GitHub](https://img.shields.io/github/license/ConradSelig/cliStocksTracker?style=for-the-badge)](https://github.com/ConradSelig/cliStocksTracker/blob/main/LICENSE)
 [![GitHub contributors](https://img.shields.io/github/contributors/ConradSelig/cliStocksTracker?style=for-the-badge)](https://github.com/ConradSelig/cliStocksTracker/graphs/contributors)
 [![GitHub last commit](https://img.shields.io/github/last-commit/ConradSelig/cliStocksTracker?style=for-the-badge)](https://github.com/ConradSelig/cliStocksTracker/commits/main)
+[![codecov](https://codecov.io/gh/ConradSelig/cliStocksTracker/branch/main/graph/badge.svg?token=RKF57QQZLX)](https://codecov.io/gh/ConradSelig/cliStocksTracker)
 
 A command line stock market / portfolio tracker originally inspired by [Ericm's Stonks](https://github.com/ericm/stonks) program, featuring unicode for incredibly high detailed
 graphs even in a terminal.

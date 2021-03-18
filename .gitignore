@@ -3,3 +3,6 @@ portfolio.ini
 config.ini
 *.fund
 *.vscode
+.pytest_cache
+.coverage
+coverage.xml
