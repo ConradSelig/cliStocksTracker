@@ -114,6 +114,7 @@ class Renderer(metaclass=utils.Singleton):
             graph.draw()
 
         self.print_new_table()
+        print()
         return
 
     def print_gains(self, format_str, gain, timespan):

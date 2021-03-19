@@ -41,7 +41,10 @@ class PortfolioEntry:
         self.holding_open_value = self.stock.open_value * self.count
         self.cost_basis = self.count * self.average_cost
         self.gains = self.holding_market_value - self.cost_basis
-        self.gains_per_share = self.gains / self.count
+        if self.count == 0:
+            self.gains_per_share = 0
+        else:
+            self.gains_per_share = self.gains / self.count
         return
 
 
@@ -128,24 +131,23 @@ class Portfolio(metaclass=utils.Singleton):
     def populate(self, stocks_config, args):
         # temp workaround for different data format depending on number of stocks being queried
         sections = stocks_config.sections()
-        singleWorkaround = False
-        if len(sections) == 1:
-            sections.append("foo")
-            singleWorkaround = True
 
         # download all stock data
         market_data = self.download_market_data(args, sections)
-
-        if singleWorkaround:
-            sections.pop()
 
         # iterate through each ticker data
         data_key = "Open"
         for ticker in sections:
             # convert the numpy array into a list of prices while removing NaN values
-            data = market_data[data_key][ticker].values[
-                ~np.isnan(market_data[data_key][ticker].values)
-            ]
+            # if there is only one section, the data frame is not split into tickers
+            if len(sections) > 1:
+                data = market_data[data_key][ticker].values[
+                    ~np.isnan(market_data[data_key][ticker].values)
+                ]
+            else:
+                data = market_data[data_key].values[
+                    ~np.isnan(market_data[data_key].values)
+                ]
             new_stock = Stock(ticker, data)
 
             # calculate average buy in
