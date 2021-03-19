@@ -123,20 +123,18 @@ class Renderer(metaclass=utils.Singleton):
 
         print("{:25}".format("Value " + gain_verboge + " " + timespan + ": "), end="")
         print(Fore.GREEN if positive_gain else Fore.RED, end="")
+
+        # This prevents a runtime warning by making sure we are never dividing by zero
+        if self.portfolio.cost_value == 0:
+            gain_val = 0
+        else:
+            gain_val = gain / self.portfolio.cost_value * 100
         print(
             format_str.format(
                 gain_symbol + "$" + str(abs(utils.round_value(gain, self.mode, 2)))
             )
             + format_str.format(
-                gain_symbol
-                + str(
-                    abs(
-                        utils.round_value(
-                            gain / self.portfolio.cost_value * 100, self.mode, 2
-                        )
-                    )
-                )
-                + "%"
+                gain_symbol + str(abs(utils.round_value(gain_val, self.mode, 2))) + "%"
             )
         )
         print(Style.RESET_ALL, end="")
