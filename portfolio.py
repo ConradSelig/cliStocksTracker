@@ -51,7 +51,6 @@ class PortfolioEntry:
 class Portfolio(metaclass=utils.Singleton):
     def __init__(self, *args, **kwargs):
         self.stocks = {}
-
         self.open_market_value = 0  # portfolio worth at market open
         self.cost_value = (
             0  # amount invested into the portfolio (sum of cost of shares)
@@ -60,9 +59,14 @@ class Portfolio(metaclass=utils.Singleton):
         return
 
     def add_entry(
-        self, stock: Stock, count: float, bought_at: float, color: str, graph: bool
+        self,
+        stock: Stock,
+        count: float,
+        average_buyin_cost: float,
+        color: str,
+        graph: bool,
     ):
-        entry = PortfolioEntry(stock, count, bought_at, graph, color)
+        entry = PortfolioEntry(stock, count, average_buyin_cost, graph, color)
         self.stocks[stock.symbol] = entry
 
         self.open_market_value += entry.holding_open_value

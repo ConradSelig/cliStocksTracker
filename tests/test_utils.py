@@ -5,6 +5,7 @@ import pytest
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import round_value, Singleton
 
+
 class mysingleton(metaclass=Singleton):
     def __init__(cls):
         cls.count = 0
@@ -14,7 +15,6 @@ class mysingleton(metaclass=Singleton):
 
 
 class TestSingleton:
-
     def test_create_new(self, ensure_singleton_exists=False):
         self.new_singleton = mysingleton()
         if not ensure_singleton_exists:
@@ -42,13 +42,13 @@ class TestRoundValue:
 
     def test_invalid_decimals(self):
         with pytest.raises(TypeError):
-            round_value(1.456543, "math", "Hello World") 
+            round_value(1.456543, "math", "Hello World")
 
     def test_negative_decimals(self):
         assert round_value(1.456543, "math", -3) == 0
 
     def test_zero_decimals_math(self):
         assert round_value(1.456543, "math", 0) == 1
-    
+
     def test_zero_decimals_down(self):
         assert round_value(1.456543, "down", 0) == 1

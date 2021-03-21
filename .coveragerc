@@ -1,0 +1,4 @@
+[run]
+omit = 
+    # We don't need test coverage of our tests
+    ./tests/*
