@@ -56,10 +56,8 @@ _stock_column_formatters = {
         "Chg%",
         10,
         lambda stock: CellData(
-            format_gl(
-                stock.change_percentage,
+            format_gl(stock.change_percentage, False) + "%",
                 Fore.GREEN if stock.change_percentage >= 0 else Fore.RED,
-            )
         ),
     ),
     "Low": ColumnFormatter("Low", 12, lambda stock: CellData(format_number(stock.low))),
