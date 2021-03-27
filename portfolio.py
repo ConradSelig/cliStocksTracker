@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 
 @dataclass
-class Stock:
+    class Stock:
     symbol: str
     data: list
 
@@ -127,13 +127,13 @@ class Portfolio(metaclass=utils.Singleton):
                 interval=time_interval,
                 progress=False,
             )
-        except:
+        except Exception as e:
             print(
                 "cliStocksTracker must be connected to the internet to function. Please ensure that you are connected to the internet and try again."
             )
+            print("Error message:", e)
 
     def populate(self, stocks_config, args):
-        # temp workaround for different data format depending on number of stocks being queried
         sections = stocks_config.sections()
 
         # download all stock data

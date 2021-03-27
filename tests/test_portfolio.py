@@ -5,11 +5,21 @@ from pandas import DataFrame
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import portfolio
-
+import autocolors
 
 class BlankArgs:
     time_period = None
     time_interval = None
+
+
+class BlankStocksConfig:
+    tickers = {}
+   
+    def __getitem__(self, key):
+        return self.tickers[key]
+
+    def sections(self):
+        return list(self.tickers.keys())
 
 
 class TestStockDataclass:
@@ -150,3 +160,55 @@ class TestPortfolio:
             type(self.my_portfolio.download_market_data(BlankArgs(), ["AAPL"]))
             == DataFrame
         )
+    
+    def test_populate(self):
+        errors = []
+        test_stocks_config = BlankStocksConfig()
+        args = BlankArgs()
+        
+        # remove all stocks that might have slipped into the portfolio
+        self.my_portfolio.stocks = {}
+        # single stock populate
+        test_stocks_config.tickers = {"AAPL": {"graph": "True"}}
+        self.my_portfolio.populate(test_stocks_config, args)
+        if not len(self.my_portfolio.stocks) == 1 and "AAPL" not in self.my_portfolio.stocks.keys():
+            errors.append(
+                f"Single stock population failed. {len(self.my_portfolio.stocks)} != 1, \"AAPL\" not in {self.my_portfolio.stocks.keys()}"
+            )
+
+        # remove all stocks that might have slipped into the portfolio
+        self.my_portfolio.stocks = {}
+        # multiple stock populate
+        test_stocks_config.tickers = {"AAPL": {"graph": "True"}, "TSLA": {"graph": "True"}}
+        self.my_portfolio.populate(test_stocks_config, args)
+        if not len(self.my_portfolio.stocks) == 2 and "AAPL" not in self.my_portfolio.stocks.keys() and "TSLA" not in self.my_portfolio.stocks.keys():
+            errors.append(
+                f"Multiple stock population failed. {len(self.my_portfolio.stocks)} != 2, \"AAPL\" or \"TSLA\" not in {self.my_portfolio.stocks.keys()}"
+            )
+
+        assert not errors, "errors occured:\n{}".format("\n".join(errors))
+
+    def test_gen_graphs(self):
+        errors = []
+        test_stocks_config = BlankStocksConfig()
+        test_args = BlankArgs()
+
+        # independent_graphs
+        self.my_portfolio.stocks = {}
+        test_stocks_config.tickers = {"AAPL": {"graph": "True"}, "TSLA": {"graph": "True"}}
+        self.my_portfolio.populate(test_stocks_config, test_args)
+        self.my_portfolio.gen_graphs(True, 30, 30, "America/New_York")
+        if not len(self.my_portfolio.graphs) == 2:
+            errors.append(
+                f"Independent graphs gen_graphs() failed. {len(self.my_portfolio.graphs)} != 2"
+            )
+
+        # single_graph
+        self.my_portfolio.graphs = []
+        self.my_portfolio.gen_graphs(False, 30, 30, "America/New_York")
+        if not len(self.my_portfolio.graphs) == 1:
+            errors.append(
+                f"Combined graphs gen_graphs() failed. {len(self.my_portfolio.graphs)} != 1"
+            )
+        assert not errors, "errors occured:\n{}".format("\n".join(errors))
+
