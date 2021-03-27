@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 
 @dataclass
-    class Stock:
+class Stock:
     symbol: str
     data: list
 
